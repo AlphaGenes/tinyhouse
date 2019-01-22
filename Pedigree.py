@@ -58,6 +58,7 @@ class Individual(object):
         self.dosages = None
 
         self.reads = None
+        self.longReads = []
 
         self.genotypeDosages = None
         self.haplotypeDosages = None
@@ -286,6 +287,12 @@ class Pedigree(object):
             for family in self.genFamilies[i]:
                 yield family
  
+    def getIndividual(self, idx) :
+        if idx not in self.individuals:
+            self.individuals[idx] = self.constructor(idx, self.maxIdn)
+            self.maxIdn += 1
+            self.generations = None
+        return self.individuals[idx]
 
     def readInPedigree(self, fileName):
         with open(fileName) as f:

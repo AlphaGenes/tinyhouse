@@ -51,6 +51,10 @@ def getParser(program) :
 
         prob_parser.add_argument('-error', default=0.01, required=False, type=float, help='Genotyping error rate. [Default 0.01]')
         prob_parser.add_argument('-seqerror', default=0.001, required=False, type=float, help='Assumed sequencing error rate. [Default 0.001]')
+    
+    if program in ["longreads"]:
+        longread_parser = parser.add_argument_group("Long read arguments")
+        longread_parser.add_argument('-longreads', default=None, required=False, type=str, nargs="*", help='A read file.')
 
     if program == "AlphaPeel" :
         core_peeling_parser = parser.add_argument_group("Mandatory peeling arguments")
