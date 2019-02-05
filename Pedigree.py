@@ -157,6 +157,7 @@ def sorted_nicely( l , key):
 class Pedigree(object):
  
     def __init__(self, fileName = None, constructor = Individual):
+
         self.maxIdn = 0
         self.maxFam = 0
 
@@ -172,6 +173,7 @@ class Pedigree(object):
         self.startsnp = 0
         self.endsnp = self.nLoci
 
+        self.referencePanel = [] #This should be an array of haplotypes. Or a dictionary?
 
         self.maf=None #Maf is the frequency of 2s.
 
@@ -463,6 +465,39 @@ class Pedigree(object):
 
                 if np.mean(genotypes == 9) < .1 :
                     ind.initHD = True
+
+    def readInReferencePanel(self, fileName, startsnp=None, stopsnp = None):
+
+        print("Reading in reference panel:", fileName)
+        index = 0
+        
+        fileNColumns = 0
+        with open(fileName) as f:
+            for line in f:
+                parts = line.split(); 
+                idx = parts[0]; 
+                #I should probably write a function to do all this error checking.
+                
+                if fileNColumns == 0:
+                    fileNColumns = len(parts)
+                if fileNColumns != len(parts):
+                    raise ValueError(f"Incorrect number of columns in {fileName}. Expected {fileNColumns} values but got {len(parts)} for individual {idx}.")
+
+                parts = parts[1:]
+                if startsnp is not None :
+                    if self.nLoci == 0:
+                        print("Setting number of loci from start/stopsnp")
+                        self.nLoci = stopsnp - startsnp + 1 #Override to make sure we get the right number of values.
+                    parts = parts[startsnp : stopsnp + 1] #Offset 1 for id and 2 for id + include stopsnp
+                haplotype=np.array([int(val) for val in parts], dtype = np.int8)
+                nLoci = len(parts)
+                if self.nLoci == 0:
+                    self.nLoci = nLoci
+                if self.nLoci != nLoci:
+                    raise ValueError(f"Incorrect number of values from {fileName}. Expected {self.nLoci} got {nLoci}.")
+
+
+                self.referencePanel.append(haplotype)
 
     def readInPhase(self, fileName, startsnp=None, stopsnp = None):
         print("Reading in phase data:", fileName)

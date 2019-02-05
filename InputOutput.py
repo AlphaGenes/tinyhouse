@@ -25,6 +25,9 @@ def getParser(program) :
 
     genotype_parser.add_argument('-bfile',   default=None, required=False, type=str, nargs="*", help='A file in plink (binary) format.')
     genotype_parser.add_argument('-genotypes', default=None, required=False, type=str, nargs="*", help='A file in AlphaGenes format.')
+    
+    genotype_parser.add_argument('-reference', default=None, required=False, type=str, nargs="*", help='A haplotype reference panel in AlphaGenes format.')
+
     genotype_parser.add_argument('-seqfile', default=None, required=False, type=str, nargs="*", help='A sequence data file.')
     genotype_parser.add_argument('-pedigree',default=None, required=False, type=str, nargs="*", help='A pedigree file in AlphaGenes format.')
     
