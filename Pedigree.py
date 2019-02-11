@@ -1,6 +1,8 @@
 import numpy as np
 from numba import jit, int8, int64, boolean, deferred_type, optional, jitclass, float32, double
 from collections import OrderedDict
+from tinyhouse import InputOutput
+from tinyhouse import ProbMath
 
 spec = OrderedDict()
 spec['idn'] = int64
@@ -561,6 +563,19 @@ class Pedigree(object):
                 ind.reads[e][:] = genotypes
                 e = 1-e
    
+
+    def callGenotypes(self, threshold):
+        for idx, ind in self.writeOrder():
+            matrix = ProbMath.getGenotypeProbabilities_ind(ind, InputOutput.args)
+            
+            matrixCollapsedHets = np.array([matrix[0,:], matrix[1,:] + matrix[2,:], matrix[3,:]], dtype=np.float32)
+            calledGenotypes = np.argmax(matrixCollapsedHets, axis = 0)
+            setMissing(calledGenotypes, matrixCollapsedHets, threshold)
+            if InputOutput.args.sexchrom and ind.sex == 0:
+                doubleIfNotMissing(calledGenotypes)
+            ind.genotypes = calledGenotypes
+
+
     def writePedigree(self, outputFile):
         with open(outputFile, 'w+') as f:
             for ind in self:
@@ -637,7 +652,19 @@ def addIfMissing(array1, array2):
         if array2[i] == 9:
             array1[i] += 1
 
+@jit(nopython=True)
+def doubleIfNotMissing(calledGenotypes):
+    nLoci = len(calledGenotypes)
+    for i in range(nLoci):
+        if calledGenotypes[i] == 1:
+            calledGenotypes[i] = 2
 
+@jit(nopython=True)
+def setMissing(calledGenotypes, matrix, thresh) :
+    nLoci = len(calledGenotypes)
+    for i in range(nLoci):
+        if matrix[calledGenotypes[i],i] < thresh:
+            calledGenotypes[i] = 9
 
 
 

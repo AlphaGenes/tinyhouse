@@ -5,9 +5,8 @@ import re
 import numpy as np
 from numba import jit
 
-import alphaplinkpython
-import PlinkWriter
 import random
+import warnings
 
 
 ##Global: 
@@ -39,6 +38,7 @@ def getParser(program) :
 
     output_options_parser.add_argument('-writekey', default="id", required=False, type=str, help='Determines the order in which individuals are ordered in the output file based on their order in the corresponding input file. Animals not in the input file are placed at the end of the file and sorted in alphanumeric order. These animals can be surpressed with the "-onlykeyed" option. Options: id, pedigree, genotypes, sequence, segregation. Defualt: id.')
     output_options_parser.add_argument('-onlykeyed', action='store_true', required=False, help='Flag to surpress the animals who are not present in the file used with -outputkey. Also surpresses "dummy" animals.')
+    
     if program == "AlphaImpute" :
         core_impute_parser = parser.add_argument_group("Impute options")
         core_impute_parser.add_argument('-no_impute', action='store_true', required=False, help='Flag to read in the files but not perform imputation.')
@@ -46,7 +46,7 @@ def getParser(program) :
         core_impute_parser.add_argument('-maxthreads',default=1, required=False, type=int, help='Number of threads to use. Default: 1.')
         core_impute_parser.add_argument('-binaryoutput', action='store_true', required=False, help='Flag to write out the genotypes as a binary plink output.')
 
-    if program in ["AlphaPeel", "AlphaAssign", "AlphaMGS"]:
+    if program in ["AlphaPeel", "AlphaAssign", "AlphaMGS", "AlphaCall"]:
         prob_parser = parser.add_argument_group("Genotype probability arguments")
 
         prob_parser.add_argument('-error', default=0.01, required=False, type=float, help='Genotyping error rate. [Default 0.01]')
@@ -125,10 +125,17 @@ def getParser(program) :
         core_assign_parser.add_argument('-potentialgrandsires', default=None, required=False, type=str, help='A list of potential dams for each individual.')
         core_assign_parser.add_argument('-usemaf', action='store_true', required=False, help='A flag to use the minor allele frequency when constructing genotype estimates for the sire and maternal grandsire. Not recomended for small input pedigrees.')
 
+    if program == "AlphaCall":
+        print("Hello world!")
+        call_parser = parser.add_argument_group("AlphaCall arguments")
+        call_parser.add_argument('-threshold', default=None, required=False, type=float, help='Genotype calling threshold. Use. .3 for best guess genotype.')
+        call_parser.add_argument('-sexchrom', action='store_true', required=False, help='A flag to that this is a sex chromosome. Sex needs to be given in the pedigree file. This is currently an experimental option.')
+
     return parser
 
 
 def parseArgs(program):
+    print(program)
     global args
     args = rawParseArgs(program)
     args.program = program
@@ -200,10 +207,20 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
             pedigree.readInPhase(phase, args.startsnp, args.stopsnp)
     
     if args.bfile is not None: 
-        for plink in args.bfile:
-            if pedigreeReadIn == True:
-                print(f"Pedigree file read in from -pedigree option. Reading in binary plink file {plink}. Pedigree information in the .fam file will be ignored.")
-            readInGenotypesPlink(pedigree, plink, args.startsnp, args.stopsnp, pedigreeReadIn)
+        alphaplinkpython_avail = False
+        try:
+            import alphaplinkpython
+            import PlinkWriter
+            alphaplinkpython_avail = True
+
+        except ImportError:
+            warnings.warn("The module alphaplinkpython was not found. Plink files cannot be read in and will be ignored.")
+
+        if alphaplinkpython_avail:
+            for plink in args.bfile:
+                if pedigreeReadIn == True:
+                    print(f"Pedigree file read in from -pedigree option. Reading in binary plink file {plink}. Pedigree information in the .fam file will be ignored.")
+                readInGenotypesPlink(pedigree, plink, args.startsnp, args.stopsnp, pedigreeReadIn)
 
     #It's important that these happen after all the datafiles are read in.
     #Each read in can add individuals. This information needs to be calculated on the final pedigree.
