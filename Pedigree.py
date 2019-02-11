@@ -110,6 +110,7 @@ class Individual(object):
 
 
     def constructInfo(self, nLoci, genotypes = True,  haps = False, reads = False) :
+        print("Constructing", self.idx, nLoci, genotypes)
         if genotypes and self.genotypes is None:
             self.genotypes = np.full(nLoci, 9, dtype = np.int8)
         

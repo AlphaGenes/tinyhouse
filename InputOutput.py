@@ -192,6 +192,11 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
     if args.genotypes is not None: 
         for geno in args.genotypes:
             pedigree.readInGenotypes(geno, args.startsnp, args.stopsnp)
+    
+    if args.reference is not None: 
+        for ref in args.reference:
+            pedigree.readInReferencePanel(ref, args.startsnp, args.stopsnp)
+    
     if args.seqfile is not None: 
         for seq in args.seqfile:
             pedigree.readInSequence(seq, args.startsnp, args.stopsnp)
