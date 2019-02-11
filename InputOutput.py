@@ -126,7 +126,6 @@ def getParser(program) :
         core_assign_parser.add_argument('-usemaf', action='store_true', required=False, help='A flag to use the minor allele frequency when constructing genotype estimates for the sire and maternal grandsire. Not recomended for small input pedigrees.')
 
     if program == "AlphaCall":
-        print("Hello world!")
         call_parser = parser.add_argument_group("AlphaCall arguments")
         call_parser.add_argument('-threshold', default=None, required=False, type=float, help='Genotype calling threshold. Use. .3 for best guess genotype.')
         call_parser.add_argument('-sexchrom', action='store_true', required=False, help='A flag to that this is a sex chromosome. Sex needs to be given in the pedigree file. This is currently an experimental option.')
@@ -135,7 +134,6 @@ def getParser(program) :
 
 
 def parseArgs(program):
-    print(program)
     global args
     args = rawParseArgs(program)
     args.program = program
