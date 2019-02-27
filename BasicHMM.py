@@ -181,10 +181,10 @@ def diploidHMM(ind, paternalHaplotypes, maternalHaplotypes, error, recombination
     nLoci = len(ind.genotypes)
 
     # !!!! NEED TO MAKE SURE SOURCE HAPLOTYPES ARE ALL NON MISSING!!!
-    if type(paternalHaplotypes) is list:
+    if type(paternalHaplotypes) is list or type(paternalHaplotypes) is tuple:
         paternalHaplotypes = np.array(paternalHaplotypes)
 
-    if type(maternalHaplotypes) is list:
+    if type(maternalHaplotypes) is list or type(maternalHaplotypes) is tuple:
         maternalHaplotypes = np.array(maternalHaplotypes)
     
     if type(error) is float:
@@ -213,7 +213,7 @@ def diploidHMM(ind, paternalHaplotypes, maternalHaplotypes, error, recombination
 
     if callingMethod == "dosages" :
         dosages = getDiploidDosages(hapEst, paternalHaplotypes, maternalHaplotypes)
-        return dosages
+        ind.dosages = dosages
 
     if callingMethod == "callhaps":
         raise ValueError("callhaps not yet implimented.")

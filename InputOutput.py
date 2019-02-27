@@ -12,31 +12,16 @@ import warnings
 ##Global: 
 args = None
 
+
+
 def getParser(program) :
     parser = argparse.ArgumentParser(description='')
-
     core_parser = parser.add_argument_group("Core arguments")
-
     core_parser.add_argument('-out', required=True, type=str, help='The output file prefix.')
 
+    addInputFileParser(parser)
+
     #Genotype files.
-    genotype_parser = parser.add_argument_group("Genotype arguments")
-
-    genotype_parser.add_argument('-bfile',   default=None, required=False, type=str, nargs="*", help='A file in plink (binary) format.')
-    genotype_parser.add_argument('-genotypes', default=None, required=False, type=str, nargs="*", help='A file in AlphaGenes format.')
-    
-    genotype_parser.add_argument('-reference', default=None, required=False, type=str, nargs="*", help='A haplotype reference panel in AlphaGenes format.')
-
-    genotype_parser.add_argument('-seqfile', default=None, required=False, type=str, nargs="*", help='A sequence data file.')
-    genotype_parser.add_argument('-pedigree',default=None, required=False, type=str, nargs="*", help='A pedigree file in AlphaGenes format.')
-    
-    genotype_parser.add_argument('-phasefile',default=None, required=False, type=str, nargs="*", help='A phase file in AlphaGenes format.')
-
-    genotype_parser.add_argument('-startsnp',default=None, required=False, type=int, help='The first marker to consider. The first marker in the file is marker "1".')
-    genotype_parser.add_argument('-stopsnp',default=None, required=False, type=int, help='The last marker to consider.')
-
-    # genotype_parser.add_argument('-map',default=None, required=False, type=str, help='A map file in AlphaGenes format.')
-    genotype_parser.add_argument('-seed',default=None, required=False, type=int, help='A random seed to use for debugging.')
     output_options_parser = parser.add_argument_group("Output options")
 
     output_options_parser.add_argument('-writekey', default="id", required=False, type=str, help='Determines the order in which individuals are ordered in the output file based on their order in the corresponding input file. Animals not in the input file are placed at the end of the file and sorted in alphanumeric order. These animals can be surpressed with the "-onlykeyed" option. Options: id, pedigree, genotypes, sequence, segregation. Defualt: id.')
@@ -136,9 +121,23 @@ def getParser(program) :
     return parser
 
 
-def parseArgs(program):
+def addInputFileParser(parser):
+    genotype_parser = parser.add_argument_group("Input arguments")
+
+    genotype_parser.add_argument('-bfile',   default=None, required=False, type=str, nargs="*", help='A file in plink (binary) format (only stable on Linux).')
+    genotype_parser.add_argument('-genotypes', default=None, required=False, type=str, nargs="*", help='A file in AlphaGenes format.')
+    genotype_parser.add_argument('-reference', default=None, required=False, type=str, nargs="*", help='A haplotype reference panel in AlphaGenes format.')
+    genotype_parser.add_argument('-seqfile', default=None, required=False, type=str, nargs="*", help='A sequence data file.')
+    genotype_parser.add_argument('-pedigree',default=None, required=False, type=str, nargs="*", help='A pedigree file in AlphaGenes format.')
+    genotype_parser.add_argument('-phasefile',default=None, required=False, type=str, nargs="*", help='A phase file in AlphaGenes format.')
+    genotype_parser.add_argument('-startsnp',default=None, required=False, type=int, help='The first marker to consider. The first marker in the file is marker "1".')
+    genotype_parser.add_argument('-stopsnp',default=None, required=False, type=int, help='The last marker to consider.')
+    genotype_parser.add_argument('-seed',default=None, required=False, type=int, help='A random seed to use for debugging.')
+
+
+def parseArgs(program, parser = None):
     global args
-    args = rawParseArgs(program)
+    args = rawParseArgs(program, parser)
     args.program = program
 
     if args.startsnp is not None:
@@ -147,9 +146,10 @@ def parseArgs(program):
     ##Add any necessary code to check args here.
     return args
 
-def rawParseArgs(program) :
+def rawParseArgs(program, parser = None) :
+    if parser is None:
+        parser = getParser(program)
 
-    parser = getParser(program)
     args = sys.argv[1:]
     if len(args) == 0 : 
         parser.print_help(sys.stderr)

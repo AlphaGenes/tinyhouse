@@ -12,18 +12,25 @@ def getGenotypesFromMaf(maf) :
 
     return mafGenotypes
 
-def getGenotypeProbabilities_ind(ind, args):
+def getGenotypeProbabilities_ind(ind, args = None):
+    if args is None:
+        error = 0.01
+        seqError = 0.001
+        sexChromFlag = False
+    else:
+        error = args.error
+        seqError = args.seqerror
+        sexChromFlag = args.sexchrom and ind.sex == 0 #This is the sex chromosome and the individual is male.
 
     if ind.reads is not None:
         nLoci = len(ind.reads[0])
     if ind.genotypes is not None:
         nLoci = len(ind.genotypes)
-    sexChromFlag = args.sexchrom and ind.sex == 0 #This is the sex chromosome and the individual is male.
-    return getGenotypeProbabilities(nLoci, ind.genotypes, ind.reads, args.error, args.seqerror, sexChromFlag)
+    return getGenotypeProbabilities(nLoci, ind.genotypes, ind.reads, error, seqError, sexChromFlag)
 
 
 def getGenotypeProbabilities(nLoci, genotypes, reads, error = 0.01, seqError = 0.001, useSexChrom=False):
-    vals = np.full((4, nLoci), .25)
+    vals = np.full((4, nLoci), .25, dtype = np.float32)
     if type(error) is float:
         error = np.full(nLoci, error)
     if type(seqError) is float:

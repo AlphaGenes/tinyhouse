@@ -94,6 +94,9 @@ class Individual(object):
 
         self.genotypedFounderStatus = None
 
+    def getPercentMissing(self):
+        return np.mean(self.genotypes == 9)
+
     def getGeneration(self):
 
         if self.generation != -1 : return self.generation
@@ -112,7 +115,6 @@ class Individual(object):
 
 
     def constructInfo(self, nLoci, genotypes = True,  haps = False, reads = False) :
-        print("Constructing", self.idx, nLoci, genotypes)
         if genotypes and self.genotypes is None:
             self.genotypes = np.full(nLoci, 9, dtype = np.int8)
         
@@ -285,10 +287,11 @@ class Pedigree(object):
         if self.families is None:
             self.setupFamilies()
 
-        gens = range(0, self.nGenerations + 1)
+        gens = range(0, len(self.genFamilies))
         if rev: gens = reversed(gens)
 
         for i in gens:
+            print(i)
             for family in self.genFamilies[i]:
                 yield family
  
