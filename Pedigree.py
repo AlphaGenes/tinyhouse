@@ -122,7 +122,7 @@ class Individual(object):
             self.haplotypes = (np.full(nLoci, 9, dtype = np.int8), np.full(nLoci, 9, dtype = np.int8))
 
         if reads and self.reads is None:
-            self.reads = (np.full(nLoci, 0, dtype = np.int16), np.full(nLoci, 0, dtype = np.int16))
+            self.reads = (np.full(nLoci, 0, dtype = np.int64), np.full(nLoci, 0, dtype = np.int64))
     
     def isFounder(self):
         return (self.sire is None) and (self.dam is None)
@@ -175,6 +175,9 @@ class Pedigree(object):
         self.truePed = None
         self.nLoci = 0
         
+        self.mapSireToFamilies = None
+        self.mapDamToFamilies = None
+
         self.startsnp = 0
         self.endsnp = self.nLoci
 
@@ -187,6 +190,24 @@ class Pedigree(object):
 
         self.args = None
         self.writeOrderList = None
+
+    def setupFamilyMap(self):
+        self.mapSireToFamilies = dict()
+        self.mapDamToFamilies = dict()
+
+        for families in self.genFamilies:
+            for family in families:
+                sire = family.sire.idn
+                dam = family.dam.idn
+                fam = family.idn
+
+                if sire not in self.mapSireToFamilies:
+                    self.mapSireToFamilies[sire] = []
+                self.mapSireToFamilies[sire].append(fam)
+        
+                if dam not in self.mapDamToFamilies:
+                    self.mapDamToFamilies[dam] = []
+                self.mapDamToFamilies[dam].append(fam)
 
     def writeOrder(self):
         if self.writeOrderList is None:
@@ -578,7 +599,7 @@ class Pedigree(object):
                 if startsnp is not None :
                     parts = parts[startsnp:stopsnp+1] #Offset 1 for id and 2 for id + include stopsnp
 
-                genotypes=np.array([int(val) for val in parts], dtype = np.int16)
+                genotypes=np.array([int(val) for val in parts], dtype = np.int64)
                 nLoci = len(parts)
                 if self.nLoci == 0:
                     self.nLoci = nLoci

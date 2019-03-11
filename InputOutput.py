@@ -342,7 +342,24 @@ def writeIdnIndexedMatrix(pedigree, matrix, outputFile):
                     f.write(tmp3)
                     f.write('\n')
                 # f.write('\n')
+def writeFamIndexedMatrix(pedigree, matrix, outputFile):
+    np.set_printoptions(suppress=True)
+    print("Writing to ", outputFile)
+    with open(outputFile, 'w+') as f:
 
+        for fam in pedigree.getFamilies():
+            if len(matrix.shape) == 2 :
+                tmp = np.around(matrix[fam.idn, :], decimals = 4)
+                f.write(' '.join(map(str, tmp)))
+                # f.write('\n')
+            if len(matrix.shape) == 3 :
+                for i in range(matrix.shape[1]) :
+                    f.write(str(fam.idn) + " ")
+                    tmp2 = map("{:.4f}".format, matrix[fam.idn,i, :].tolist())
+                    tmp3 = ' '.join(tmp2)
+                    f.write(tmp3)
+                    f.write('\n')
+                # f.write('\n')
 
 def writeOutGenotypesPlink(pedigree, fileName):
     ped = [getFamString(ind) for ind in pedigree]
