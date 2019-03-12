@@ -8,17 +8,13 @@ from numba import jit
 import random
 import warnings
 
-def tryImportAlphaPlinkPython():
+alphaplinkpython_avail = False
+try:
+    import alphaplinkpython
+    from alphaplinkpython import PlinkWriter
+    alphaplinkpython_avail = True
+except ImportError:
     alphaplinkpython_avail = False
-    try:
-        import alphaplinkpython
-        from alphaplinkpython import PlinkWriter
-        alphaplinkpython_avail = True
-
-    except ImportError:
-        warnings.warn("The module alphaplinkpython was not found. Plink files cannot be read in and will be ignored.")
-    return alphaplinkpython_avail
-
 
 ##Global: 
 args = None
@@ -223,13 +219,14 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
             pedigree.readInPhase(phase, args.startsnp, args.stopsnp)
     
     if args.bfile is not None: 
-        alphaplinkpython_avail = tryImportAlphaPlinkPython()
-
+        global alphaplinkpython_avail
         if alphaplinkpython_avail:
             for plink in args.bfile:
                 if pedigreeReadIn == True:
                     print(f"Pedigree file read in from -pedigree option. Reading in binary plink file {plink}. Pedigree information in the .fam file will be ignored.")
                 readInGenotypesPlink(pedigree, plink, args.startsnp, args.stopsnp, pedigreeReadIn)
+        else:
+            warnings.warn("The module alphaplinkpython was not found. Plink files cannot be read in and will be ignored.")
 
     #It's important that these happen after all the datafiles are read in.
     #Each read in can add individuals. This information needs to be calculated on the final pedigree.
@@ -366,8 +363,7 @@ def writeFamIndexedMatrix(pedigree, matrix, outputFile):
 
 def writeOutGenotypesPlink(pedigree, fileName):
 
-    alphaplinkpython_avail = tryImportAlphaPlinkPython()
-    print("avial", alphaplinkpython_avail)
+    global alphaplinkpython_avail
     if alphaplinkpython_avail:
         import alphaplinkpython
         from alphaplinkpython import PlinkWriter
@@ -391,6 +387,8 @@ def writeOutGenotypesPlink(pedigree, fileName):
         # PlinkWriter.writeBimFile(genotypeIds, fileName + ".bim")
         writeSimpleBim(genotypeIds, genotypePos, fileName + ".bim")
         PlinkWriter.writeBedFile(genotypes, fileName + ".bed")
+    else:
+        warnings.warn("The module alphaplinkpython was not found. Plink files cannot be written out and will be ignored.")
 
 def writeSimpleBim(genotypeIds, genotypePos, fileName) :
     with open(fileName, "w") as file:
