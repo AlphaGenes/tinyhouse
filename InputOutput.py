@@ -8,6 +8,17 @@ from numba import jit
 import random
 import warnings
 
+def tryImportAlphaPlinkPython():
+    alphaplinkpython_avail = False
+    try:
+        import alphaplinkpython
+        from alphaplinkpython import PlinkWriter
+        alphaplinkpython_avail = True
+
+    except ImportError:
+        warnings.warn("The module alphaplinkpython was not found. Plink files cannot be read in and will be ignored.")
+    return alphaplinkpython_avail
+
 
 ##Global: 
 args = None
@@ -178,7 +189,6 @@ def setNumbaSeeds(seed):
     np.random.seed(seed)
     random.seed(seed)
 
-
 def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, reads = False) :
     if args.seed is not None:
         np.random.seed(args.seed)
@@ -213,14 +223,7 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
             pedigree.readInPhase(phase, args.startsnp, args.stopsnp)
     
     if args.bfile is not None: 
-        alphaplinkpython_avail = False
-        try:
-            import alphaplinkpython
-            import PlinkWriter
-            alphaplinkpython_avail = True
-
-        except ImportError:
-            warnings.warn("The module alphaplinkpython was not found. Plink files cannot be read in and will be ignored.")
+        alphaplinkpython_avail = tryImportAlphaPlinkPython()
 
         if alphaplinkpython_avail:
             for plink in args.bfile:
@@ -362,31 +365,40 @@ def writeFamIndexedMatrix(pedigree, matrix, outputFile):
                 # f.write('\n')
 
 def writeOutGenotypesPlink(pedigree, fileName):
-    ped = [getFamString(ind) for ind in pedigree]
 
-    nLoci = pedigree.nLoci
-    nInd = len(pedigree.individuals)
-    genotypes = np.full((nLoci, nInd), 0, dtype = np.int8)
+    alphaplinkpython_avail = tryImportAlphaPlinkPython()
+    print("avial", alphaplinkpython_avail)
+    if alphaplinkpython_avail:
+        import alphaplinkpython
+        from alphaplinkpython import PlinkWriter
 
-    for i, ind in enumerate(pedigree):
-        genotypes[:,i] = ind.genotypes
+        ped = [getFamString(ind) for ind in pedigree]
 
-    genotypeIds = ["snp" + str(i+1) for i in range(nLoci)]
-    genotypePos = [i + 1 for i in range(nLoci)]
-    if args.startsnp is not None:
-        genotypeIds = ["snp" + str(i + args.startsnp + 1) for i in range(nLoci)]
-        genotypePos = [i + args.startsnp + 1 for i in range(nLoci)]
+        nLoci = pedigree.nLoci
+        nInd = len(pedigree.individuals)
+        genotypes = np.full((nLoci, nInd), 0, dtype = np.int8)
 
-    PlinkWriter.writeFamFile(fileName + ".fam", ped)
-    # PlinkWriter.writeBimFile(genotypeIds, fileName + ".bim")
-    writeSimpleBim(genotypeIds, genotypePos, fileName + ".bim")
-    PlinkWriter.writeBedFile(genotypes, fileName + ".bed")
+        for i, ind in enumerate(pedigree):
+            genotypes[:,i] = ind.genotypes
+
+        genotypeIds = ["snp" + str(i+1) for i in range(nLoci)]
+        genotypePos = [i + 1 for i in range(nLoci)]
+        if args.startsnp is not None:
+            genotypeIds = ["snp" + str(i + args.startsnp + 1) for i in range(nLoci)]
+            genotypePos = [i + args.startsnp + 1 for i in range(nLoci)]
+
+        PlinkWriter.writeFamFile(fileName + ".fam", ped)
+        # PlinkWriter.writeBimFile(genotypeIds, fileName + ".bim")
+        writeSimpleBim(genotypeIds, genotypePos, fileName + ".bim")
+        PlinkWriter.writeBedFile(genotypes, fileName + ".bed")
 
 def writeSimpleBim(genotypeIds, genotypePos, fileName) :
     with open(fileName, "w") as file:
         for i in range(len(genotypeIds)):
             line = f"1 {genotypeIds[i]} 0 {genotypePos[i]} A B \n"
             file.write(line)
+
+
 
 def readInGenotypesPlink(pedigree, fileName, startsnp, endsnp, externalPedigree = False):
     bim = PlinkWriter.readBimFile(fileName + '.bim')

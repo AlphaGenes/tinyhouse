@@ -1,8 +1,8 @@
 import numpy as np
 from numba import jit, int8, int64, boolean, deferred_type, optional, jitclass, float32, double
 from collections import OrderedDict
-from tinyhouse import InputOutput
-from tinyhouse import ProbMath
+from . import InputOutput
+from . import ProbMath
 
 spec = OrderedDict()
 spec['idn'] = int64

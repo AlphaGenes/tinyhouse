@@ -13,6 +13,10 @@ def align_individual(ind):
     fillInCompPhase(ind.haplotypes[0], ind.genotypes, ind.haplotypes[1])
     fillInCompPhase(ind.haplotypes[1], ind.genotypes, ind.haplotypes[0])
 
+def ind_fillInGenotypesFromPhase(ind):
+    #Note: We never directly set genotypes so no need to go from genotypes -> phase
+    fillInGenotypesFromPhase(ind.genotypes, ind.haplotypes[0], ind.haplotypes[1])
+
 def fillFromParents(ind):
     if ind.sire is not None:
         if ind.sire.genotypes is not None:
