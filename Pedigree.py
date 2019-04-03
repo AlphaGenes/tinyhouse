@@ -66,6 +66,8 @@ class Individual(object):
         self.haplotypeDosages = None
         self.hapOfOrigin = None
 
+        self.info = None
+
         #For plant impute. Inbred is either DH or heavily selfed. Ancestors is historical source of the cross (may be more than 2 way so can't handle via pedigree).
         self.inbred = False
         self.imputationAncestors = [] #This is a list of lists. Either length 0, length 1 or length 2.
