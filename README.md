@@ -26,7 +26,7 @@ Most importantly, I believe that concerns over choosing a language for speed are
 -Andrew Whalen
  
 Numpy
-=====
+---
 
 `numpy` is a commonly used matrix library for python. It provides sensible matrix algebra, and because of the C/Fortran/MKL framework that underlies it, allows these operations to be very high-performance particularly for large matracies. It also interfaces well with `numba`. We use `numpy` arrays to store most of our genotypic data across our programs. 
 
@@ -61,10 +61,10 @@ np.full((nLoci, 3), 0, dtype = np.int8).
 ```
 
 
-`numba`
-===
+numba
+---
 
-As far as I can tell, `numba` is pretty much just magic. The idea with `numba` is that if your function is mostly written in simple base python, you add on a decorator to the function and `numba` will compile it using a just in time (jit) compiler. This has the potential to give massive speed gains for commonly used functions, and is most of the reason why I think we can get away with using python long term.
+`numba` is a just in time (jit) compiler for python. The idea is that you take a normal python function, and add on a decorator[^1]. `numba` will then compile the function and give potentially massive speed gains. The existence and usability of `numba` is one of the key features that makes python a feasible language for us in the long term.
 
 As an example, here is a function for addition
 
@@ -92,6 +92,8 @@ Some quick notes
 * Sometimes it is faster to loop than it is to use numpy. Numpy has some overhead when being called from `numba`. If the vector or matrix is small (under 100 elements) the explicit loop can be an order of magnitude faster. We do this a lot in AlphaPeel since we are working with a lot of vectors of length 4.
 * Auxiliary data structures: Although many objects can be passed to `numba`, individuals and pedigrees cannot be. It may be possible to make them just in time compatible, but this would take a lot of work and would increase our ability to use and develop on them in the future. The speed gains tend not to be worth it either. To get around this issue, I’ve tended to either create “jit” versions of a class, which replaces things like integers with id numbers.  
 * Alternatively I’ve created “information” objects which basically just create a large number of matricies which contain the data we need. In most cases these are “idn” indexed matrices, where each individual gets their own row. It’s a little bit weird that the information for an individual doesn’t live inside the individual object, but so far it has been an effective work around for getting things working.
+
+[^1]: Decorators are functions that get applied to a function and return a function. They are denoted with the `@` symbol. We use two common decorators, `numba`'s `@jit` and `kernprof`'s `@profile`. See, e.g., https://realpython.com/primer-on-python-decorators/
 
 Style
 ===
