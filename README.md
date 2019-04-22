@@ -28,24 +28,32 @@ Most importantly, I believe that concerns over choosing a language for speed are
 Numpy
 =====
 
-Most of the data we use in our python programs are stored as numpy arrays. Because we are also using `numba`, it is good to be explicit about the data types you use. E.g. if you want to allocate an empty array of size ten, use:
+`numpy` is a commonly used matrix library for python. It provides sensible matrix algebra, and because of the C/Fortran/MKL framework that underlies it, allows these operations to be very high-performance particularly for large matracies. It also interfaces well with `numba`. We use `numpy` arrays to store most of our genotypic data across our programs. 
 
+Because `numba` is type sensitive, and much of tinyhouse was developed to be `numba` aware, we tend to be explicit about the matrix type when declaring a numpy array. Failing to be explicit about types can lead to downstream compilation errors (which are generally not very informative, and can be tricky to debug). For example, if you want to allocate an empty array with 10 elements, use:
+```
 newArray = np.full(10, 0, dtype = np.float32)
-newArray = np.full(10, 0, dtype = np.int8)
-
+```
+or 
+```newArray = np.full(10, 0, dtype = np.int8)
+```
 over 
-
+```
 newArray = np.full(10, 0)
+```
 
-In general we use the following types for the following data structures:
+As a general rule, use the following types for the following data structures:
 
-* float32: General purpose double. Most of the computations we make are not hugely influenced by floating point errors (particularly in AlphaImpute and AlphaPeel). It makes sense to store information like phenotypes and dosages as float32 over float64s.
-* int64: general purpose integer. Also used for read counts. Int32 is potentially not big enough to handle future datasets (on things like size of the pedigree), but an int64 should be more than enough. The space shavings should be negligible, since most of our data is not stored this way.
-* int8: We store genotype values and haplotype values as int8s. Under a traditional coding scheme, Genotypes can take a value 0, 1, or 2. Haplotypes will take a value of 0 or 1. Even for polyploid individuals, an int8 can still capture most common genotype values. For historical reasons, we use 9 as a missing value.
+* `float32`: General purpose floating point number. Most of the computations we make are not influenced by floating point errors (particularly in AlphaImpute and AlphaPeel), where the error rates or margins of uncertainty are much larger than the floating point precision. Because of this, it makes sense to store information like phenotypes or genotype dosages as a `float32` over a `float64`.
+* `int64`: general purpose integer. Also used for sequence data read counts. There is a concern that an `int32` is not large  enough to handle future datasets (e.g. for very large pedigrees), but an `int64` should be more than enough.
+* `int8`: We store genotype values and haplotype values as an `int8`. Under a traditional coding scheme, Genotypes can take a value 0, 1, or 2. Haplotypes will take a value of 0 or 1. For historical reasons, we use 9 to denote a missing value. Potentially a more-informative missing value, like `NA` might be usable, but we would need to ensure `numba` and `numpy` compatibility. 
 
 Some other notes:
 
-* When indexing matracies that have nLoci elements, I tend to have the last column be the loci, e.g. if we have a matrix of genotypes for three individuals, I would use np.full((3, nLoci), 0, dtype = np.int8) over np.full((nLoci, 3), 0, dtype = np.int8).
+* When indexing matrices that have `nLoci` elements, I tend to have the last column be the loci, e.g. if we have a matrix of genotypes for three individuals, Use 
+```np.full((3, nLoci), 0, dtype = np.int8)``` 
+over 
+```np.full((nLoci, 3), 0, dtype = np.int8)```.
 
 
 `numba`
