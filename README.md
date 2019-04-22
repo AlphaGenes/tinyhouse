@@ -100,13 +100,13 @@ Some notes:
 Parallelization 
 ---
 
-There are a number of ways to parallelize python code. The most common are to use `numpy`'s internal parallelized functions, or to use `concurrent.futures.ThreadPoolExecutor` or `concurrent.futures.ProcessPoolExecutor`. `numpy`'s default parallelization is a good low-overhead option if most of the computational bottlenecks are large matrix operations. However it doesn't not always provide substantial improvements for complex matrix operations, and may not scale to a large number of processes. In contrast, both the `ThreadPoolExecutor` and `ProcessPoolExecutor` can perform parallel calls of arbitrary functions. The primary difference between them is:
+There are a number of ways to parallelize python code. The most common are to use `numpy`'s internal parallelized functions, or to use `concurrent.futures.ThreadPoolExecutor` or `concurrent.futures.ProcessPoolExecutor`. `numpy`'s default parallelization is a good low-overhead option if most of the computational bottlenecks are large matrix operations. However it doesn't not always provide substantial improvements for complex matrix operations, and may not scale to a large number of processes. In contrast, both the `ThreadPoolExecutor` and `ProcessPoolExecutor` can parallelize arbitrary functions. The primary difference between them is:
 
 **ThreadPoolExecutor** This executes the function across several **threads**. By default these threads share memory. However Python is still bound by the global interpreter lock, which prevents multiple threads executing their commands simultaneously. This means that `ThreadPoolExecutor` will generally not lead to any performance gains since only a single thread is active at a given time, but may allow for some asynchronous tasks to be performed with python. It is possible to get around the global interpreter lock with `numba`.
 
-**ProcessPoolExecutor** This executes the functions across several python **processes**. These processes do not share memory, but have separate global interpreters. This means that you can get sizable speed gains by executing function calls across multiple processes, but may occur overhead for transferring memory between processes. 
+**ProcessPoolExecutor** This executes the functions across several python **processes**. These processes do not share memory, but have separate global interpreters. This means that you can get sizable speed gains by executing function calls across multiple processes, but may occur overhead for transferring data between processes. 
 
-In our code we use both `ThreadPoolExecutor` and `ProcessPoolExecutor`, depending on what situation we are in. If we need to parallelize a large section of `jit` compiled `numba` code, we use a `ThreadPoolExecutor` and flag the function with `@jit(nopython=True, nogil=True)`. For example, see `Peeling.py` in `TinyPeel`. If we need to parallelize non-numba functions, we will use a `ProcessPoolExecutor` instead. 
+In our code we use both `ThreadPoolExecutor` and `ProcessPoolExecutor`, depending on what situation we are in. If we need to parallelize a large section of `jit` compiled `numba` code, we use a `ThreadPoolExecutor` and flag the function with `@jit(nopython=True, nogil=True)`. For example, see `Peeling.py` in `TinyPeel`. If we need to parallelize non-numba functions, we use a `ProcessPoolExecutor` instead. 
 
 For more information about Python's global interpreter lock, see e.g., https://wiki.python.org/moin/GlobalInterpreterLock
 
@@ -123,9 +123,39 @@ Some exceptions:
 Folder layouts
 ==============
 
-All of the python programs have the following folder layout.
+All of the python programs should follow a similar layout.  For example, here is the layout for the program "AlphaCall".
 
-Folder Layout.
+```
+.
+├── build_pipeline.sh
+├── docs
+├── example
+│   ├── out.called.0.98
+│   ├── reads.txt
+│   └── runScript.sh
+├── setup.py
+├── src
+│   └── alphacall
+│       ├── AlphaCall-Convert.py
+│       ├── AlphaCall.py
+│       └── tinyhouse
+│           ├── BasicHMM.py
+│           ├── BurrowsWheelerLibrary.py
+│           ├── HaplotypeLibrary.py
+│           ├── HaplotypeOperations.py
+│           ├── InputOutput.py
+│           ├── Pedigree.py
+│           ├── ProbMath.py
+└── tests
+    ├── basedata
+    │   ├── reads.txt
+    │   └── target.txt
+    ├── checkResults.r
+    ├── outputs
+    │   └── out.called.0.98
+    └── runTests.sh
+
+```
 
 
 Some files
