@@ -35,7 +35,8 @@ Because `numba` is type sensitive, and much of tinyhouse was developed to be `nu
 newArray = np.full(10, 0, dtype = np.float32)
 ```
 or 
-```newArray = np.full(10, 0, dtype = np.int8)
+```
+newArray = np.full(10, 0, dtype = np.int8)
 ```
 over 
 ```
