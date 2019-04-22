@@ -96,10 +96,28 @@ Some notes:
 
 [^1]: Decorators are functions that get applied to a function and return a function. They are denoted with the `@` symbol. We use two common decorators, `numba`'s `@jit` and `kernprof`'s `@profile`. See, e.g., https://realpython.com/primer-on-python-decorators/
 
+Parallelization 
+---
+
+There are a number of ways to parallelize python code. The most common are to use `numpy`'s internal parallelized functions, or to use `concurrent.futures.ThreadPoolExecutor` or `concurrent.futures.ProcessPoolExecutor`. `numpy`'s default parallelization is a good low-overhead option if most of the computational bottlenecks are large matrix operations. However it doesn't not always provide substantial improvements for complex matrix operations, and may not scale to a large number of processes. In contrast, both the `ThreadPoolExecutor` and `ProcessPoolExecutor` can perform parallel calls of arbitrary functions. The primary difference between them is:
+
+**ThreadPoolExecutor** This executes the function across several **threads**. By default these threads share memory. However Python is still bound by the global interpreter lock, which prevents multiple threads executing their commands simultaneously. This means that `ThreadPoolExecutor` will generally not lead to any performance gains since only a single thread is active at a given time, but may allow for some asynchronous tasks to be performed with python. It is possible to get around the global interpreter lock with `numba`.
+
+**ProcessPoolExecutor** This executes the functions across several python **processes**. These processes do not share memory, but have separate global interpreters. This means that you can get sizable speed gains by executing function calls across multiple processes, but may occur overhead for transferring memory between processes. 
+
+In our code we use both `ThreadPoolExecutor` and `ProcessPoolExecutor`, depending on what situation we are in. If we need to parallelize a large section of `jit` compiled `numba` code, we use a `ThreadPoolExecutor` and flag the function with `@jit(nopython=True, nogil=True)`. For example, see `Peeling.py` in `TinyPeel`. If we need to parallelize non-numba functions, we will use a `ProcessPoolExecutor` instead. 
+
+For more information about Python's global interpreter lock, see e.g., https://wiki.python.org/moin/GlobalInterpreterLock
+
 Style
 ===
 
-We generally follow some mix of PEP8: https://www.python.org/dev/peps/pep-0008/
+We generally follow PEP8: https://www.python.org/dev/peps/pep-0008/
+
+Some exceptions:
+
+* camelCase is generally used for variable names.
+* underscores (\_) are inconsistently used to denote `@jit` functions and classes. 
 
 Folder layouts
 ==============
