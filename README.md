@@ -1,33 +1,32 @@
-Dear John,
+Hello,
 
-If you are reading this, I probably got hit by a bus. I wanted to leave some notes for whatever poor post-doc has been given the task of understanding the software I wrote. This might also serve as an introductory document for new hires to our python code base.
+Welcome to tinyhouse, an increasingly non light-weight python module for processing genotypes and pedigrees, and for performing common operations for livestock breeding settings. This document is designed to give a brief overview of this software package, including some over-arching design philosophies, and some specifics about programs that use our software.
 
-There’s a lot in here. I’m going to go through three main topics. First: some general philosophy and gatchas about writing code in python, and using tinyhouse as a library. Second: a bit about what each of the files in tinyhouse contains. This is not a full exauhstive list though. It will also include areas where I hope we’ll improve in the (near) future. Last it will include a brief overview of the software that depends on tinyhouse. The goal to give some idea of how it is currently being used.
+This document covers three main topics.
+1. Some general philosophy and gatchas about writing code in python, and using tinyhouse as a library.
+2. a bit about what each of the files in tinyhouse contains. This is not a full exauhstive list though. It will also include areas where improvement is needed (and hopefully will take place in the near future!).
+3. It will include a brief overview of the software that depends on tinyhouse. The goal to give some idea of how it is currently being used, along with example programs that show how it might be used in the future.
 
-Some overarching ideas
+Some overarching ideas.
 ======
 
 Python
 ------
 
-When I started writing python code, most of the group was using a mix of Fortran and R for their programming needs. This had some issues, but seemed to work at the time. We still have a fairly large codebase written in Fortran, and it’s likely that most of those programs will stay that way. 
+When I started writing this library, most of the group (myself included) was using Fortran as their primary coding language. This worked well becuase most of our legacy code in AlphaImpute and AlphaHouse was written in fortran, and John knew and understood the language. As time went on, working with Fortran was creating more problems then it was solving, and so we started looking for other langauges. Python was an obvious choice -- it is widely used both within and outside of academia. There are a large number of mature third party modules and libraries that can be taken advantage of. It is easy to learn, a joy to code in, and simple to deploy and maintain. It also provides (though `numpy` and `numba`) fast computational libraries that give C or Fortran like speed increases, with minimal overhead.
 
-In particular, I wrote first version of AlphaPeel was written in Fortran, and learned a lot through that experience. One of the key things though was that we spent an awful lot of time writing code for some fairly simple things. Unlike most modern programming langauges, we had to code up our own version of common datastructures, liked linked lists, or dictionaries. We also had to write custom code for common operations like searching and sorting. This would be fine, but given how Fortran is structured as a language, it can take considerable development time to adapt existing code to new problems or new types.
+Many of these features stand in stark contrast to Fortran, which is no longer widely used, hard to code in, and lacks easy interfaces to common operations. Some simple data structures like linked lists and dictionaries are missing in Fortran, along with modern object-oriented programing principles like inheritance, and common operations like searching and sorting. Although it is possible (and AlphaImpute, AlphaPhase, and AlphaHouse impliment) these features, it takes a sizeable number of developer-hours to do this, and porting them to different data structures is not always straightforward. These hurdles can make it expensive (in terms of developer-hours) to try out new ideas, or play around with new approaches and algorithms which hampered my ability to do research).
 
-I was finding that it was limiting the type of development I was able to do, and restricting the types of algorithms we could create and try. In short, our choice of programming language was actively hampering our ability to develop software and do research. So we took a look at python instead.
+Computational speed has remained one of the main concerns about moving away from Fortran. This group burns a disturbingly large amount of CPU time every month, and any computational savings can increase the throughput we have getting jobs through Eddie. In addition, some of the commercial partners we work with, need to be able to run our software in a short time frame (generally 24 hours on their data), and so an order of magnitude speed difference will matter.
 
-There are a lot of advantages for python. The language is rapidly developing, has a massive user base, there are a lot of third party modules available. It’s also easy to learn, easy to develop, and easy to maintain. The availibility of common libraries, means that we don’t need to worry about creating linked lists (or lists) for common objects, we have them build in. We also don’t need to re-write common functions like search functions, since they were already implemented. 
+To allow python to obtain Fortran level speeds for performing large scale matrix operations, much of the code is now parrellelizable, and heavily utilizes both numpy and `numba`. Numpy is a commonly used matrix library in python. `numba` is a just in time (jit) compiler that is able to compile a subset of the core python language, along with some numpy features into faster code. In many cases, using `numba` and numpy requires little extra coding and provides competitive speed gains compared to Fortran. In some cases, working with `numba` can require some creative engineering, but the speed gains and convience of using python more generally are worth it.
 
-The main disasdvantage was that we already had a lot of code written in Fortran, and there was a worry that speed was going to be an issue. I think that in a lot of cases, speed has been fairly overlooked or minimized as something that people care about. Computers have gotten faster, but algorithms and common problems haven’t gotten substantially more complex. That is not the case for our group. We burn a disturbingly large amount of CPU time every month, and while Eddie is somewhat free, as a group we’ve invested quite a lot of money to obtain the resources we have, so it makes sense to use them wisely.
-
-To get around issues regarding speed, we’ve taken advantage of using numpy and numba, two high performance computing libraries for python. Numpy is a matrix library, numba is a just in time compiler that allows compiled code using a subset of the core python language, along with some numpy features. In most cases, utilizing numba/numpy doesn’t require changing any code. In numba’s case a just in time decorator is added to functions, but sometimes it requires a little it of code refactoring.
-
-To put it bluntly, I think concerns over speed for most of our use cases are somewhat over-rated. In many cases the types of things that in python are slowest (and can’t be sped up using numba), are also the types of things we don’t spend a whole lot of run time. I think sorting a pedigree is a good example of this. To sort a pedigree, we take a list of individuals, calculate the generation of each individual (the generation is defined as 0 if the individual doesn’t have any parents, and the max(sire_generation, dam_generation) + 1, otherwise). We then create a list of generations and assign an individual to the list containing other individuals of their same generation. This creates a “sorted” pedigree, and let’s us go from the earliest individual to the most recent, and guarantees that we will always process an individual’s parents before the individual. In python, this takes 10-15 lines of code to do. In Fortran it took hundreds, and was a big enough deal that we have an entire program devoted to doing this on our website (AlphaRecode). In terms of runtime though – sorting a pedigree with 200,000 individuals takes under a second and so any speed gain will be negligible compared to the cost of what ever post-processing happens on that pedigree. 
+Most importantly, I believe that concerns over choosing a language for speed are generally misplaced. In an academic environment the limiting factor for developing fast code tends to be developer time. More developer time means that the developer can spend more time profiling the code, and refining the algorithms used. This will generally give larger speed increases then re-implimenting the same algorithm in a (slightly) faster language. I believe that this is particularly the case for non-speed critical operations, where the convience of having a pre-existing data structure, like a non-fixed length list, or a dictionary, greatly outweighs the marginal speed losses for using one.  
 
 Numpy
 =====
 
-Most of the data we use in our python programs are stored as numpy arrays. Because we are also using numba, it is good to be explicit about the data types you use. E.g. if you want to allocate an empty array of size ten, use:
+Most of the data we use in our python programs are stored as numpy arrays. Because we are also using `numba`, it is good to be explicit about the data types you use. E.g. if you want to allocate an empty array of size ten, use:
 
 newArray = np.full(10, 0, dtype = np.float32)
 newArray = np.full(10, 0, dtype = np.int8)
@@ -47,10 +46,10 @@ Some other notes:
 * When indexing matracies that have nLoci elements, I tend to have the last column be the loci, e.g. if we have a matrix of genotypes for three individuals, I would use np.full((3, nLoci), 0, dtype = np.int8) over np.full((nLoci, 3), 0, dtype = np.int8).
 
 
-Numba
-==
+`numba`
+===
 
-As far as I can tell, Numba is pretty much just magic. The idea with numba is that if your function is mostly written in simple base python, you add on a decorator to the function and numba will compile it using a just in time (jit) compiler. This has the potential to give massive speed gains for commonly used functions, and is most of the reason why I think we can get away with using python long term.
+As far as I can tell, `numba` is pretty much just magic. The idea with `numba` is that if your function is mostly written in simple base python, you add on a decorator to the function and `numba` will compile it using a just in time (jit) compiler. This has the potential to give massive speed gains for commonly used functions, and is most of the reason why I think we can get away with using python long term.
 
 As an example, here is a function for addition
 
@@ -70,14 +69,19 @@ def add(a, b) :
 add(1, 2)
 ```
 
-In the code we use the flag “jit(nopython=True)” or “njit” to mark code for compilation. If just the “jit” flag is given, then the code may not be compiled (if it contains non-numba compatible elements). Using “nopython=True” or “njit” means that an error will be thrown instead.
+In the code we use the flag “jit(nopython=True)” or “njit” to mark code for compilation. If just the “jit” flag is given, then the code may not be compiled (if it contains non-`numba` compatible elements). Using “nopython=True” or “njit” means that an error will be thrown instead.
 
-The types of arguments that numba can accept is growing. Generally it can take most “common” items including numpy arrays. You can also write just-in-time classes. See the jit_family class in pedigree.py for an example.
+The types of arguments that `numba` can accept is growing. Generally it can take most “common” items including numpy arrays. You can also write just-in-time classes. See the jit_family class in pedigree.py for an example.
 
 Some quick notes
-* Sometimes it is faster to loop than it is to use numpy. Numpy has some overhead when being called from numba. If the vector or matrix is small (under 100 elements) the explicit loop can be an order of magnitude faster. We do this a lot in AlphaPeel since we are working with a lot of vectors of length 4.
-* Auxiliary data structures: Although many objects can be passed to numba, individuals and pedigrees cannot be. It may be possible to make them just in time compatible, but this would take a lot of work and would increase our ability to use and develop on them in the future. The speed gains tend not to be worth it either. To get around this issue, I’ve tended to either create “jit” versions of a class, which replaces things like integers with id numbers.  
+* Sometimes it is faster to loop than it is to use numpy. Numpy has some overhead when being called from `numba`. If the vector or matrix is small (under 100 elements) the explicit loop can be an order of magnitude faster. We do this a lot in AlphaPeel since we are working with a lot of vectors of length 4.
+* Auxiliary data structures: Although many objects can be passed to `numba`, individuals and pedigrees cannot be. It may be possible to make them just in time compatible, but this would take a lot of work and would increase our ability to use and develop on them in the future. The speed gains tend not to be worth it either. To get around this issue, I’ve tended to either create “jit” versions of a class, which replaces things like integers with id numbers.  
 * Alternatively I’ve created “information” objects which basically just create a large number of matricies which contain the data we need. In most cases these are “idn” indexed matrices, where each individual gets their own row. It’s a little bit weird that the information for an individual doesn’t live inside the individual object, but so far it has been an effective work around for getting things working.
+
+Style
+===
+
+We generally follow some mix of PEP8: https://www.python.org/dev/peps/pep-0008/
 
 Folder layouts
 ==============
