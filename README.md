@@ -45,16 +45,20 @@ newArray = np.full(10, 0)
 
 As a general rule, use the following types for the following data structures:
 
-* `float32`: General purpose floating point number. Most of the computations we make are not influenced by floating point errors (particularly in AlphaImpute and AlphaPeel), where the error rates or margins of uncertainty are much larger than the floating point precision. Because of this, it makes sense to store information like phenotypes or genotype dosages as a `float32` over a `float64`.
+* `float32`: General purpose floating point number. Most of the computations we make are not influenced by floating point errors (particularly in AlphaImpute and AlphaPeel), where the error rates or margins of uncertainty are much larger than the floating point precision. Because of this, it makes sense to store information like phenotypes, genotype probabilities, or genotype dosages as a `float32` over a `float64`.
 * `int64`: general purpose integer. Also used for sequence data read counts. There is a concern that an `int32` is not large  enough to handle future datasets (e.g. for very large pedigrees), but an `int64` should be more than enough.
 * `int8`: We store genotype values and haplotype values as an `int8`. Under a traditional coding scheme, Genotypes can take a value 0, 1, or 2. Haplotypes will take a value of 0 or 1. For historical reasons, we use 9 to denote a missing value. Potentially a more-informative missing value, like `NA` might be usable, but we would need to ensure `numba` and `numpy` compatibility. 
 
 Some other notes:
 
 * When indexing matrices that have `nLoci` elements, I tend to have the last column be the loci, e.g. if we have a matrix of genotypes for three individuals, Use 
-```np.full((3, nLoci), 0, dtype = np.int8)``` 
+```
+np.full((3, nLoci), 0, dtype = np.int8)
+``` 
 over 
-```np.full((nLoci, 3), 0, dtype = np.int8)```.
+```
+np.full((nLoci, 3), 0, dtype = np.int8).
+```
 
 
 `numba`
