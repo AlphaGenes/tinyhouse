@@ -66,7 +66,7 @@ numba
 
 `numba` is a just in time (jit) compiler for python. The idea is that you take a normal python function, and add on a decorator[^1]. `numba` will then compile the function and give potentially massive speed gains. The existence and usability of `numba` is one of the key features that makes python a feasible language for us in the long term.
 
-As an example, here is a function for addition
+As an example, here is a function that adds two numbers together:
 
 ```
 def add(a, b) :
@@ -74,24 +74,24 @@ def add(a, b) :
 add(1, 2)
 ```
 
-and a just in time version of the function
+Here is a jit compiled version of the same function:
 
 ```
-from numba import njit 
-@njit
+from numba import jit 
+@jit(nopython=True)
 def add(a, b) :
     return a + b
 add(1, 2)
 ```
 
-In the code we use the flag “jit(nopython=True)” or “njit” to mark code for compilation. If just the “jit” flag is given, then the code may not be compiled (if it contains non-`numba` compatible elements). Using “nopython=True” or “njit” means that an error will be thrown instead.
+In the code we use the decorator `@jit(nopython=True)` or `@njit` to compile a function. If the `@jit` flag is given without arguments, then the code may not be compiled, particularly if it contains non-`numba` compatible elements. Using the `nopython=True` arguments, or `njit` forces the function to be compiled. An error will be thrown if the function cannot be compiled. 
 
-The types of arguments that `numba` can accept is growing. Generally it can take most “common” items including numpy arrays. You can also write just-in-time classes. See the jit_family class in pedigree.py for an example.
+The types of arguments that `numba` can accept is growing. Generally it can take most base python objects including numpy arrays. You can also write just-in-time classes. See the `jit_family` class in `pedigree.py` for an example.
 
-Some quick notes
-* Sometimes it is faster to loop than it is to use numpy. Numpy has some overhead when being called from `numba`. If the vector or matrix is small (under 100 elements) the explicit loop can be an order of magnitude faster. We do this a lot in AlphaPeel since we are working with a lot of vectors of length 4.
-* Auxiliary data structures: Although many objects can be passed to `numba`, individuals and pedigrees cannot be. It may be possible to make them just in time compatible, but this would take a lot of work and would increase our ability to use and develop on them in the future. The speed gains tend not to be worth it either. To get around this issue, I’ve tended to either create “jit” versions of a class, which replaces things like integers with id numbers.  
-* Alternatively I’ve created “information” objects which basically just create a large number of matricies which contain the data we need. In most cases these are “idn” indexed matrices, where each individual gets their own row. It’s a little bit weird that the information for an individual doesn’t live inside the individual object, but so far it has been an effective work around for getting things working.
+Some notes:
+* Generally in base python it is faster to use a numpy vectorized operation (e.g., for matrix addition). In `numba` this is not always the case. If the vector or matrix is small (under 100 elements) it is usually faster to write the explicit for loop. The speed increase for the for loop can be an order of magnitude greater than the vectorized operation. This occurs a lot in AlphaPeel since we are working with genotype probabilities that are of length 4. 
+* Auxiliary data structures: Although many objects can be passed to `numba`, our `individual` and `pedigree` objects cannot. Although it may be possible to make them `numba` compatible, I think this would take a lot of work and would decrease their usability in the long term. One way around this is to create wrappers around a `jit` function which take an individual (or set of individuals) and performs a common operation on e.g. their genotypes. Alternatively we can use `jit` versions of a class, where e.g., individuals are replaced with integer id numbers.
+* For individual programs, it can often make sense to create "information" objects which are holders for a large number of matrices. These matrices are generally indexed by an individuals id number, `idn`. Unlike traditional pedigree objects, these information objects are usually much easier to turn into a `jit` class. It may seem a little bit weird that information on an individual is not directly linked to the individual object, but so far this has been an effective work around.
 
 [^1]: Decorators are functions that get applied to a function and return a function. They are denoted with the `@` symbol. We use two common decorators, `numba`'s `@jit` and `kernprof`'s `@profile`. See, e.g., https://realpython.com/primer-on-python-decorators/
 
