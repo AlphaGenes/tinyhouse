@@ -3,6 +3,7 @@ Hello,
 Welcome to tinyhouse, an increasingly non light-weight python module for processing genotypes and pedigrees, and for performing common operations for livestock breeding settings. This document is designed to give a brief overview of this software package, including some over-arching design philosophies, and some specifics about programs that use our software.
 
 This document covers three main topics.
+
 1. Some general philosophy about writing code in python, and using tinyhouse as a library.
 2. a bit about what each of the files in tinyhouse contains. This is not a full exhaustive list though. It will also include areas where improvement is needed (and hopefully will take place in the near future!).
 3. It will include a brief overview of the software that depends on tinyhouse. The goal to give some idea of how it is currently being used, along with example programs that show how it might be used in the future.
