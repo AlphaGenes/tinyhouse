@@ -1,5 +1,6 @@
 from numba import jit
 import numpy as np
+from . import ProbMath
 
 
 def haploidHMM(targetHaplotype, sourceHaplotypes, error, recombinationRate, threshold = 0.9, callingMethod = "dosages"):
@@ -176,7 +177,7 @@ def haploidForwardBackward(pointEst, recombinationRate) :
 # print(haploidHMM(targetHaplotype, sourceHaplotypes, 0.01, 0.1, threshold = 0.9))
 
 
-def diploidHMM(ind, paternalHaplotypes, maternalHaplotypes, error, recombinationRate, callingMethod = "dosages", I = 0): #I is inbreeding coefficient. Honestly this should go into plantimpute at some point.
+def diploidHMM(ind, paternalHaplotypes, maternalHaplotypes, error, recombinationRate, callingMethod = "dosages", useCalledHaps = True): 
 
     nLoci = len(ind.genotypes)
 
@@ -198,14 +199,19 @@ def diploidHMM(ind, paternalHaplotypes, maternalHaplotypes, error, recombination
     ### Build haploid HMM. 
     ###Construct penetrance values
 
-    pointEst = getDiploidPointEstimates(ind.genotypes, ind.haplotypes[0], ind.haplotypes[1], paternalHaplotypes, maternalHaplotypes, error)
+    if useCalledHaps:
+        pointEst = getDiploidPointEstimates(ind.genotypes, ind.haplotypes[0], ind.haplotypes[1], paternalHaplotypes, maternalHaplotypes, error)
+    else:
+        probs = ProbMath.getGenotypeProbabilities_ind(ind)
+        pointEst = getDiploidPointEstimates_probs(probs, paternalHaplotypes, maternalHaplotypes, error)
+
     
     # if prior is not None:
     #     addDiploidPrior(pointEst, prior)
 
     ### Run forward-backward algorithm on penetrance values.
 
-    hapEst = diploidForwardBackward(pointEst, recombinationRate, I=I)
+    hapEst = diploidForwardBackward(pointEst, recombinationRate)
     # for i in range(nLoci) :
     #     print(hapEst[:,:,i])
     # raise Exception()
@@ -270,9 +276,39 @@ def getDiploidPointEstimates(indGeno, indPatHap, indMatHap, paternalHaplotypes, 
                             pointEst[j,k,i] = error[i]*error[i]
     return pointEst
 
+@jit(nopython=True)
+def getDiploidPointEstimates_probs(indProbs, paternalHaplotypes, maternalHaplotypes, error):
+    nPat, nLoci = paternalHaplotypes.shape
+    nMat, nLoci = maternalHaplotypes.shape
+
+    pointEst = np.full((nPat, nMat, nLoci), 1, dtype = np.float32)
+    for i in range(nLoci):
+        for j in range(nPat):
+            for k in range(nMat):
+                # I'm just going to be super explicit here. 
+                p_aa = indProbs[0, i]
+                p_aA = indProbs[1, i]
+                p_Aa = indProbs[2, i]
+                p_AA = indProbs[3, i]
+
+                if paternalHaplotypes[j,i] == 0 and maternalHaplotypes[k, i] == 0:
+                    value = p_aa*(1-error)**2 + (p_aA + p_Aa)*error*(1-error) + p_AA*error**2
+
+                if paternalHaplotypes[j,i] == 1 and maternalHaplotypes[k, i] == 0:
+                    value = p_Aa*(1-error)**2 + (p_aa + p_AA)*error*(1-error) + p_aA*error**2
+
+                if paternalHaplotypes[j,i] == 0 and maternalHaplotypes[k, i] == 1:
+                    value = p_aA*(1-error)**2 + (p_aa + p_AA)*error*(1-error) + p_Aa*error**2
+
+                if paternalHaplotypes[j,i] == 1 and maternalHaplotypes[k, i] == 1:
+                    value = p_AA*(1-error)**2  + (p_aA + p_Aa)*error*(1-error) + p_a*error**2
+
+                pointEst[j,k,i] = value
+    return pointEst
+
 
 @jit(nopython=True)
-def diploidForwardBackward(pointEst, recombinationRate, I = 0) :
+def diploidForwardBackward(pointEst, recombinationRate) :
     #This is probably way more fancy than it needs to be -- particularly it's low memory impact, but I think it works.
     nPat, nMat, nLoci = pointEst.shape
 
