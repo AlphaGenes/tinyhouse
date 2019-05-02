@@ -290,18 +290,18 @@ def getDiploidPointEstimates_probs(indProbs, paternalHaplotypes, maternalHaploty
                 p_aA = indProbs[1, i]
                 p_Aa = indProbs[2, i]
                 p_AA = indProbs[3, i]
-
+                e = error[i]
                 if paternalHaplotypes[j,i] == 0 and maternalHaplotypes[k, i] == 0:
-                    value = p_aa*(1-error)**2 + (p_aA + p_Aa)*error*(1-error) + p_AA*error**2
+                    value = p_aa*(1-e)**2 + (p_aA + p_Aa)*e*(1-e) + p_AA*e**2
 
                 if paternalHaplotypes[j,i] == 1 and maternalHaplotypes[k, i] == 0:
-                    value = p_Aa*(1-error)**2 + (p_aa + p_AA)*error*(1-error) + p_aA*error**2
+                    value = p_Aa*(1-e)**2 + (p_aa + p_AA)*e*(1-e) + p_aA*e**2
 
                 if paternalHaplotypes[j,i] == 0 and maternalHaplotypes[k, i] == 1:
-                    value = p_aA*(1-error)**2 + (p_aa + p_AA)*error*(1-error) + p_Aa*error**2
+                    value = p_aA*(1-e)**2 + (p_aa + p_AA)*e*(1-e) + p_Aa*e**2
 
                 if paternalHaplotypes[j,i] == 1 and maternalHaplotypes[k, i] == 1:
-                    value = p_AA*(1-error)**2  + (p_aA + p_Aa)*error*(1-error) + p_a*error**2
+                    value = p_AA*(1-e)**2  + (p_aA + p_Aa)*e*(1-e) + p_aa*e**2
 
                 pointEst[j,k,i] = value
     return pointEst
