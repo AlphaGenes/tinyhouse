@@ -177,7 +177,7 @@ def haploidForwardBackward(pointEst, recombinationRate) :
 # print(haploidHMM(targetHaplotype, sourceHaplotypes, 0.01, 0.1, threshold = 0.9))
 
 
-def diploidHMM(ind, paternalHaplotypes, maternalHaplotypes, error, recombinationRate, callingMethod = "dosages", useCalledHaps = True): 
+def diploidHMM(ind, paternalHaplotypes, maternalHaplotypes, error, recombinationRate, callingMethod = "dosages", useCalledHaps = True, includeGenoProbs = False): 
 
     nLoci = len(ind.genotypes)
 
@@ -221,6 +221,10 @@ def diploidHMM(ind, paternalHaplotypes, maternalHaplotypes, error, recombination
         dosages = getDiploidDosages(hapEst, paternalHaplotypes, maternalHaplotypes)
         ind.dosages = dosages
 
+    if callingMethod == "probabilities" :
+        values = getDiploidProbabilities(hapEst, paternalHaplotypes, maternalHaplotypes)
+        ind.info = values
+
     if callingMethod == "callhaps":
         raise ValueError("callhaps not yet implimented.")
     if callingMethod == "viterbi" :
@@ -244,6 +248,27 @@ def getDiploidDosages(hapEst, paternalHaplotypes, maternalHaplotypes):
             for k in range(nMat):
                 dosages[i] += hapEst[j,k,i]*(paternalHaplotypes[j,i] + maternalHaplotypes[k,i])
     return dosages
+
+@jit(nopython=True)
+def getDiploidProbabilities(hapEst, paternalHaplotypes, maternalHaplotypes):
+    nPat, nLoci = paternalHaplotypes.shape
+    nMat, nLoci = maternalHaplotypes.shape
+    probs = np.full((4, nLoci), 0, dtype = np.float32)
+    for i in range(nLoci):
+        for j in range(nPat):
+            for k in range(nMat):
+                if paternalHaplotypes[j, i] == 0 and maternalHaplotypes[k, i] == 0:
+                    probs[0, i] += hapEst[j, k, i]
+
+                if paternalHaplotypes[j, i] == 0 and maternalHaplotypes[k, i] == 1:
+                    probs[1, i] += hapEst[j, k, i]
+
+                if paternalHaplotypes[j, i] == 1 and maternalHaplotypes[k, i] == 0:
+                    probs[2, i] += hapEst[j, k, i]
+
+                if paternalHaplotypes[j, i] == 1 and maternalHaplotypes[k, i] == 1:
+                    probs[3, i] += hapEst[j, k, i]
+    return probs
 
 @jit(nopython=True)
 def getDiploidPointEstimates(indGeno, indPatHap, indMatHap, paternalHaplotypes, maternalHaplotypes, error):
