@@ -4,6 +4,27 @@ from collections import OrderedDict
 from . import InputOutput
 from . import ProbMath
 
+
+
+
+class Family(object):
+    """Family is a container for fullsib families"""
+    def __init__(self, idn, sire, dam, offspring):
+        self.idn = idn
+        self.sire = sire
+        self.dam = dam
+        self.offspring = offspring
+        self.generation = max(sire.generation, dam.generation)
+
+    def addChild(self, child) :
+        self.offspring.append(child)
+
+    def toJit(self):
+        """Returns a just in time version of itself with Individuals replaced by id numbers"""
+        offspring = np.array([child.idn for child in self.offspring])
+        return jit_Family(self.idn, self.sire.idn, self.dam.idn, offspring)
+
+
 spec = OrderedDict()
 spec['idn'] = int64
 spec['sire'] = int64
@@ -18,41 +39,8 @@ class jit_Family(object):
         self.dam = dam
         self.offspring = offspring
 
-class Family(object):
-
-    def __init__(self, idn, sire, dam, offspring):
-        self.idn = idn
-        self.sire = sire
-        self.dam = dam
-        self.offspring = offspring
-        self.generation = max(sire.generation, dam.generation)
-
-    def addChild(self, child) :
-        self.offspring.append(child)
-
-    def setProxy(self) :
-        if self.sire.isFounder() and not self.sire.hasProxySet:
-            hdChildren = [child for child in self.offspring if child.initHD]
-            if len(hdChildren) > 0:
-                hdChildren[0].isProxyForSire = True
-            else:
-                self.offspring[0].isProxyForSire = True
-            self.sire.hasProxySet = True
-
-        if self.dam.isFounder() and not self.dam.hasProxySet:
-            hdChildren = [child for child in self.offspring if child.initHD]
-            if len(hdChildren) > 0:
-                hdChildren[0].isProxyForDam = True
-            else:
-                self.offspring[0].isProxyForDam = True
-            self.dam.hasProxySet = True
-
-    def toJit(self):
-        offspring = np.array([child.idn for child in self.offspring])
-        return jit_Family(self.idn, self.sire.idn, self.dam.idn, offspring)
-
 class Individual(object):
-
+    
     def __init__(self, idx, idn) :
 
         self.genotypes = None
@@ -62,10 +50,12 @@ class Individual(object):
         self.reads = None
         self.longReads = []
 
+        # Do we use this?
         self.genotypeDosages = None
         self.haplotypeDosages = None
         self.hapOfOrigin = None
 
+        # Info is here to provide other software to add in additional information to an Individual.
         self.info = None
 
         #For plant impute. Inbred is either DH or heavily selfed. Ancestors is historical source of the cross (may be more than 2 way so can't handle via pedigree).
@@ -75,33 +65,28 @@ class Individual(object):
 
         self.sire = None
         self.dam = None
-        self.idx = idx
-        self.idn = idn #ID number
-        self.fileIndex = dict()
+        self.idx = idx # User inputed string identifier
+        self.idn = idn # ID number assigned by the pedigree
+        self.fileIndex = dict() # Position of an animal in each file when reading in. Used to make sure Input and Output order are the same.
         self.fileIndex["id"] = idx
-
-        # self.isProxyForDam = False
-        # self.isProxyForSire = False
-
-        # self.hasProxySet = False
 
         self.dummy = False
 
         self.offspring = []
 
         self.sex = -1
-        self.generation = -1
+        self.generation = None
 
         self.initHD = False
 
-        self.genotypedFounderStatus = None
+        self.genotypedFounderStatus = None #?
 
     def getPercentMissing(self):
         return np.mean(self.genotypes == 9)
 
     def getGeneration(self):
 
-        if self.generation != -1 : return self.generation
+        if self.generation is None : return self.generation
 
         if self.dam is None: 
             damGen = -1
