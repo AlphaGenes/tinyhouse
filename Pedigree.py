@@ -86,7 +86,7 @@ class Individual(object):
 
     def getGeneration(self):
 
-        if self.generation is None : return self.generation
+        if self.generation is not None : return self.generation
 
         if self.dam is None: 
             damGen = -1
