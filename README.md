@@ -113,7 +113,7 @@ For more information about Python's global interpreter lock, see e.g., https://w
 Style
 ===
 
-We generally follow PEP8: https://www.python.org/dev/peps/pep-0008/
+We vaugley follow PEP8: https://www.python.org/dev/peps/pep-0008/
 
 Some exceptions:
 
@@ -156,18 +156,48 @@ All of the python programs should follow a similar layout.  For example, here is
     └── runTests.sh
 
 ```
+In this folder, there are a number of mandatory files, and some optional files.
+
+**build_pipeline.sh** This bash script should contain all of the commands required to build and install the python module. It may be as simple as `python setup.py -bdist_wheel`, or may contain some additional code to clean and maintain the code base. Making sure this is up to date is highly recommended, since it is easy to forget exactly what arguments need to be passed to `setup.py`.
+**setup.py** This is a python file that contains instructions for how to compile the python program. For an example, see the `setup.py` in `AlphaCall`. There may be a broader explanation for how `setup.py` files work in the future.
+**src** This folder contains all of the python source code for the project. A version of `tinyhouse` is likely also included here. In this folder there should be a sub-folder with the name of the package, e.g. `alphacall`. The main scripts should be included in this sub-folder. Due to the way python handles relative imports, there may be some scripts in `src` to enable running the code directly, without having to first install the program. These are there to help with debugging and testing functionality.
+**tests** This folder should contain a set of tests to test the functionality of the program, including datasets required to run those tests (and potentially scripts to generate the data). The tests should be run-able with `./runTests.sh`, and should output success or failure. In the future there may be a more general way of running an entire suite of tests.
+**example:** This folder should contain a simple example of the program. The example should run by calling `./runScript.sh`.
+**docs:** This folder should contain all of the documentation for the project. If the documentation needs to be compiled, all of the files to compile it should be included. If there is a relevant paper, it may be a good idea to place it in here as well. 
+
 
 
 Some files
 ==========
 
-BasicHMM.py 
-BurrowsWheelerLibrary.py
-HaplotypeLibrary.py 
-HaplotypeOperations.py  3.28 KB 
 InputOutput.py
-Pedigree.py
-ProbMath.py
+----
+
+Need a lot of words here.
+
+BasicHMM.py 
+----
+
+This module contains code to run a simple Li and Stephens style HMM based on a set of reference haplotypes. This was originally generated for TinyPlantImpute. There is a haploid and a diploid version. Both needs work. The primary functions are `haploidHMM` and `diploidHMM`. The haploid HMM takes in a single haplotype and a reference panel. The diploid HMM takes in an individual and a set of haplotype panels (for each sire/dam). There is an option to output either the called genotypes, dosages, or maximum likelihood (Viterbi) path, although not all of these algorithms are currently implemented. 
+
+Pedigree.py 
+----
+This module contains functions for storing data for individuals in a structured way. There are three main classes, `Individual`, `Pedigree`, and `Family`. The `Indivdiual` class provides a space for storing data related to an individual. This includes common data structures like genotypes, haplotypes, or read counts, and relationships with other individuals like sires, dams, or offspring. A `Family` object is a container for a full sib family (a single sire and dam, and their offspring). A `Pedigree` object is the default class for holding individuals. The primary container is a dictionary that contains all of the individuals indexed by ID number. It also includes an iterator to iterate over individuals in "generation" order (which places offspring after their parents). A large portion of the input/output is handled here and should be separated out. 
+
+
+ProbMath.py 
+----
+This module contains some probability math that is shared between programs. The key function is `getGenotypeProbabilities_ind` which takes in an individual and returns a `4 x nLoci` matrix of genotype probabilities based on the individuals genotype and read count data. This is also where the transmission matrix lives for AlphaPeel, AlphaAssign, and AlphaFamImpute.
+
+HaplotypeOperations.py
+----
+This module contains some simple operations that can be performed on haplotypes.
+
+
+BurrowsWheelerLibrary.py and HaplotypeLibrary.py
+-----
+These two modules include two different ways of constructing haplotype
+libraries. These are solely used by AlphaImpute2, and will be better documented when AlphaImpute2 gets a bit more mature.
 
 Some programs 
 ===
