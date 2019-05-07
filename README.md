@@ -110,6 +110,20 @@ In our code we use both `ThreadPoolExecutor` and `ProcessPoolExecutor`, dependin
 
 For more information about Python's global interpreter lock, see e.g., https://wiki.python.org/moin/GlobalInterpreterLock
 
+Profiling
+----
+
+For profiling, Kernprof seems to do a pretty good job. It requires adding the `@profile` decorator to functions. This will cause errors when not running the profiler. Because of this, many of the packages have the following lines in the header:
+```
+try:
+    profile
+except:
+    def profile(x):
+        return x
+
+```
+These lines look to see if profile is a valid function (i.e. if currently running with kernprof), otherwise it turns `profile` into the identity function.
+
 Style
 ===
 
