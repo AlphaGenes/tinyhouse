@@ -8,7 +8,14 @@ def setup_individual(ind):
         fillInGenotypesFromPhase(ind.genotypes, ind.haplotypes[0], ind.haplotypes[1])
 
 def align_individual(ind):
-    #Note: We never directly set genotypes so no need to go from genotypes -> phase
+    # Note: The note below is no longer true.
+    # Note: We never directly set genotypes so no need to go from genotypes -> phase
+
+    # Fill in phase from genotypes.
+    fillInPhaseFromGenotypes(ind.haplotypes[0], ind.genotypes)
+    fillInPhaseFromGenotypes(ind.haplotypes[1], ind.genotypes)
+
+    # Fill in genotypes from phase, and fill in haplotypes from each other.
     fillInGenotypesFromPhase(ind.genotypes, ind.haplotypes[0], ind.haplotypes[1])
     fillInCompPhase(ind.haplotypes[0], ind.genotypes, ind.haplotypes[1])
     fillInCompPhase(ind.haplotypes[1], ind.genotypes, ind.haplotypes[0])

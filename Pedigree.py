@@ -17,6 +17,10 @@ class Family(object):
         self.offspring = offspring
         self.generation = max(sire.generation, dam.generation)
 
+        # Add this family to both the sire and dam's family.
+        self.sire.families.append(self)
+        self.dam.families.append(self)
+
     def addChild(self, child) :
         self.offspring.append(child)
 
@@ -74,6 +78,7 @@ class Individual(object):
         self.dummy = False
 
         self.offspring = []
+        self.families = []
 
         self.sex = -1
         self.generation = None
@@ -274,8 +279,8 @@ class Pedigree(object):
     def __reversed__(self) :
         if self.generations is None:
             self.setUpGenerations()
-        for gen in self.generations:
-            for ind in reversed(gen):
+        for gen in reversed(self.generations):
+            for ind in gen:
                 yield ind
 
     def setUpGenerations(self) :
