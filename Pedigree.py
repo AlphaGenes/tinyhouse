@@ -87,15 +87,6 @@ class Individual(object):
 
         self.genotypedFounderStatus = None #?
 
-    def toJit(self):
-        """Returns a just in time version of itself with the same idn and holders for haplotypes and genotypes"""
-
-        if self.genotypes is None or self.haplotypes is None:
-            raise ValueError("In order to just in time an Individual, both genotypes and haplotypes need to be not None")
-        nLoci = len(self.genotypes) # self.genotypes will always be not None (otherwise error will be raised above).
-        return jit_Individual(self.idn, self.genotypes, self.haplotypes, nLoci)
-
-
 
     def getPercentMissing(self):
         return np.mean(self.genotypes == 9)
@@ -151,24 +142,6 @@ class Individual(object):
         return self.genotypedFounderStatus
     def isGenotypedFounder(self):
         return (self.getGenotypedFounderStatus() == 1)
-
-spec = OrderedDict()
-spec['idn'] = int64
-spec['nLoci'] = int64
-spec['genotypes'] = int8[:]
-# Haplotypes and reads are a tuple of int8 and int64.
-spec['haplotypes'] = numba.typeof((np.array([0, 1], dtype = np.int8), np.array([0], dtype = np.int8)))
-# spec['reads'] = optional(numba.typeof((np.array([0, 1], dtype = np.int64), np.array([0], dtype = np.int64))))
-
-@jitclass(spec)
-class jit_Individual(object):
-    def __init__(self, idn, genotypes, haplotypes, nLoci):
-        self.idn = idn
-        self.genotypes = genotypes
-        self.haplotypes = haplotypes
-        # self.reads = reads
-        self.nLoci = nLoci
-
 
 # Not sure of the code source: https://blog.codinghorror.com/sorting-for-humans-natural-sort-order/
 # Slightly modified.
