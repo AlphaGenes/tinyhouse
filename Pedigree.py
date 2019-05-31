@@ -546,7 +546,7 @@ class Pedigree(object):
 
                 ind, reads, ncol = self.readInLine(line, startsnp = startsnp, stopsnp = stopsnp, idxExpected = idxExpected, ncol = ncol, dtype = np.int64)
                 currentInd = ind
-                
+
                 ind.constructInfo(self.nLoci, reads=True)
                 ind.fileIndex['sequence'] = index; index += 1
 
@@ -582,13 +582,15 @@ class Pedigree(object):
     def writeGenotypes(self, outputFile):
         with open(outputFile, 'w+') as f:
             for idx, ind in self.individuals.items():
-                f.write(ind.idx + ' ' + ' '.join(map(str, ind.genotypes)) + '\n')
+                self.writeLine(f, ind.idx, ind.genotypes, str)
 
     def writePhase(self, outputFile):
         with open(outputFile, 'w+') as f:
             for idx, ind in self.individuals.items():
-                f.write(ind.idx + ' ' + ' '.join(map(str, ind.haplotypes[0])) + '\n')
-                f.write(ind.idx + ' ' + ' '.join(map(str, ind.haplotypes[1])) + '\n')
+
+                self.writeLine(f, ind.idx, ind.haplotypes[0], str)
+                self.writeLine(f, ind.idx, ind.haplotypes[1], str)
+
 
 
     def writeDosages(self, outputFile):
@@ -599,7 +601,8 @@ class Pedigree(object):
                 else: 
                     dosages = ind.genotypes.copy()
                     dosages[dosages == 9] = 1
-                f.write(ind.idx + ' ' + ' '.join(map("{:.4f}".format, dosages)) + '\n')
+                self.writeLine(f, ind.idx, dosages, "{:.4f}".format)
+
 
     def writeGenotypes_prefil(self, outputFile):
         # print("Output is using filled genotypes. Filling missing with a value of 1")
@@ -612,7 +615,11 @@ class Pedigree(object):
         with open(outputFile, 'w+') as f:
             for idx, ind in self.individuals.items():
                 fill(ind.genotypes, fillValues)
-                f.write(ind.idx + ' ' + ' '.join(map(str, ind.genotypes)) + '\n')
+                self.writeLine(f, ind.idx, ind.genotypes, str)
+
+    def writeLine(self, f, idx, data, func) :
+        f.write(idx + ' ' + ' '.join(map(func, data)) + '\n')
+
 
     # def writeSeg(self, outputFile):
     #     with open(outputFile, 'w+') as f:
