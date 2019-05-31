@@ -442,43 +442,50 @@ class Pedigree(object):
             if np.mean(genotypes == 9) < .1 :
                 ind.initHD = True
 
+
+    def readInLine(self, line, startsnp, stopsnp, idxExpected = None, ncol = None, dtype = np.int8, getInd = True):
+        parts = line.split(); 
+        idx = parts[0]
+
+        if idxExpected is not None and idx != idxExpected:
+            raise ValueError(f"Expected individual {idxExpected} but got individual {idx}")
+
+        if ncol is None:
+            ncol = len(parts)
+        if ncol != len(parts):
+            raise ValueError(f"Incorrect number of columns in {fileName}. Expected {ncol} values but got {len(parts)} for individual {idx}.")
+
+        parts = parts[1:]
+        if startsnp is not None :
+            if self.nLoci == 0:
+                print("Setting number of loci from start/stopsnp")
+                self.nLoci = stopsnp - startsnp + 1 #Override to make sure we get the right number of values.
+            parts = parts[startsnp : stopsnp + 1] #Offset 1 for id and 2 for id + include stopsnp
+        data=np.array([int(val) for val in parts], dtype = dtype)
+        
+        nLoci = len(parts)
+        if self.nLoci == 0:
+            self.nLoci = nLoci
+        if self.nLoci != nLoci:
+            raise ValueError(f"Incorrect number of values from {fileName}. Expected {self.nLoci} got {nLoci}.")
+        ind = None
+
+        if getInd :
+            ind = self.getIndividual(idx)
+
+        return ind, data, ncol 
+
     def readInGenotypes(self, fileName, startsnp=None, stopsnp = None):
 
         print("Reading in AlphaImpute Format:", fileName)
         index = 0
         
-        fileNColumns = 0
+        ncol = None
         with open(fileName) as f:
             for line in f:
-                parts = line.split(); 
-                idx = parts[0]; 
+                ind, genotypes, ncol = self.readInLine(line, startsnp = startsnp, stopsnp = stopsnp, idxExpected = None, ncol = ncol, dtype = np.int8)
 
-                if fileNColumns == 0:
-                    fileNColumns = len(parts)
-                if fileNColumns != len(parts):
-                    raise ValueError(f"Incorrect number of columns in {fileName}. Expected {fileNColumns} values but got {len(parts)} for individual {idx}.")
-
-                parts = parts[1:]
-                if startsnp is not None :
-                    if self.nLoci == 0:
-                        print("Setting number of loci from start/stopsnp")
-                        self.nLoci = stopsnp - startsnp + 1 #Override to make sure we get the right number of values.
-                    parts = parts[startsnp : stopsnp + 1] #Offset 1 for id and 2 for id + include stopsnp
-                genotypes=np.array([int(val) for val in parts], dtype = np.int8)
-                nLoci = len(parts)
-                if self.nLoci == 0:
-                    self.nLoci = nLoci
-                if self.nLoci != nLoci:
-                    raise ValueError(f"Incorrect number of values from {fileName}. Expected {self.nLoci} got {nLoci}.")
-
-
-                if idx not in self.individuals:
-                    self.individuals[idx] = self.constructor(idx, self.maxIdn)
-                    self.maxIdn += 1
-
-
-                ind = self.individuals[idx]
-                ind.constructInfo(nLoci, genotypes=True)
+                ind.constructInfo(self.nLoci, genotypes=True)
                 ind.genotypes = genotypes
 
                 ind.fileIndex['genotypes'] = index; index += 1
@@ -494,29 +501,7 @@ class Pedigree(object):
         fileNColumns = 0
         with open(fileName) as f:
             for line in f:
-                parts = line.split(); 
-                idx = parts[0]; 
-                #I should probably write a function to do all this error checking.
-                
-                if fileNColumns == 0:
-                    fileNColumns = len(parts)
-                if fileNColumns != len(parts):
-                    raise ValueError(f"Incorrect number of columns in {fileName}. Expected {fileNColumns} values but got {len(parts)} for individual {idx}.")
-
-                parts = parts[1:]
-                if startsnp is not None :
-                    if self.nLoci == 0:
-                        print("Setting number of loci from start/stopsnp")
-                        self.nLoci = stopsnp - startsnp + 1 #Override to make sure we get the right number of values.
-                    parts = parts[startsnp : stopsnp + 1] #Offset 1 for id and 2 for id + include stopsnp
-                haplotype=np.array([int(val) for val in parts], dtype = np.int8)
-                nLoci = len(parts)
-                if self.nLoci == 0:
-                    self.nLoci = nLoci
-                if self.nLoci != nLoci:
-                    raise ValueError(f"Incorrect number of values from {fileName}. Expected {self.nLoci} got {nLoci}.")
-
-
+                ind, haplotype, ncol = self.readInLine(line, startsnp = startsnp, stopsnp = stopsnp, idxExpected = None, ncol = ncol, dtype = np.int8, getInd=False)
                 self.referencePanel.append(haplotype)
 
     def readInPhase(self, fileName, startsnp=None, stopsnp = None):
@@ -529,41 +514,16 @@ class Pedigree(object):
             currentInd = None
 
             for line in f:
-                parts = line.split(); 
-                idx = parts[0]
-
-                if fileNColumns == 0:
-                    fileNColumns = len(parts)
-                if fileNColumns != len(parts):
-                    raise ValueError(f"Incorrect number of columns in {fileName}. Expected {fileNColumns} values but got {len(parts)} for individual {idx}.")
-
-                parts = parts[1:]
-                if startsnp is not None :
-                    if self.nLoci == 0:
-                        print("Setting number of loci from start/stopsnp")
-                        self.nLoci = stopsnp - startsnp 
-                    parts = parts[startsnp:stopsnp+1] #Offset 1 for id and 2 for id + include stopsnp
-
-                genotypes=np.array([int(val) for val in parts], dtype = np.int8)
-                nLoci = len(genotypes)
-                if self.nLoci == 0:
-                    self.nLoci = nLoci
-                if self.nLoci != nLoci:
-                    raise ValueError(f"Incorrect number of values from {fileName}. Expected {self.nLoci} got {nLoci}.")
-
-                if idx not in self.individuals:
-                    self.individuals[idx] = self.constructor(idx, self.maxIdn)
-                    self.maxIdn += 1
-
-
-                ind = self.individuals[idx]
                 if e == 0: 
-                    currentInd = ind.idx
-                if currentInd != ind.idx:
-                    raise ValueError(f"Unexpected individual. Expecting individual {currentInd}, but got ind {ind.idx} on value {e}")
+                    idxExpected = None
+                else:
+                    idxExpected = currentInd.idx
 
-                ind.constructInfo(nLoci, haps=True)
-                ind.haplotypes[e][:] = genotypes
+                ind, haplotype, ncol = self.readInLine(line, startsnp = startsnp, stopsnp = stopsnp, idxExpected = idxExpected, ncol = ncol, dtype = np.int8)
+                currentInd = ind
+
+                ind.constructInfo(self.nLoci, haps=True)
+                ind.haplotypes[e][:] = haplotype
                 e = 1-e
 
                 ind.fileIndex['phase'] = index; index += 1
@@ -579,31 +539,8 @@ class Pedigree(object):
             currentInd = None
 
             for line in f:
-                parts = line.split(); 
-                idx = parts[0]; 
+                ind, haplotype, ncol = self.readInLine(line, startsnp = startsnp, stopsnp = stopsnp, idxExpected = idxExpected, ncol = ncol, dtype = np.int64)
 
-                if fileNColumns == 0:
-                    fileNColumns = len(parts)
-                if fileNColumns != len(parts):
-                    raise ValueError(f"Incorrect number of columns in {fileName}. Expected {fileNColumns} values but got {len(parts)} for individual {idx}.")
-
-                parts = parts[1:]
-
-                if startsnp is not None :
-                    parts = parts[startsnp:stopsnp+1] #Offset 1 for id and 2 for id + include stopsnp
-
-                genotypes=np.array([int(val) for val in parts], dtype = np.int64)
-                nLoci = len(parts)
-                if self.nLoci == 0:
-                    self.nLoci = nLoci
-                if self.nLoci != nLoci:
-                    raise ValueError(f"Incorrect number of values from {fileName}. Expected {self.nLoci} got {nLoci}.")
-
-                if idx not in self.individuals:
-                    self.individuals[idx] = self.constructor(idx, self.maxIdn)
-                    self.maxIdn += 1
-
-                ind = self.individuals[idx]
                 if e == 0: 
                     currentInd = ind.idx
                 if currentInd != ind.idx:
