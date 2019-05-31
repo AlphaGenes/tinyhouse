@@ -498,7 +498,7 @@ class Pedigree(object):
         print("Reading in reference panel:", fileName)
         index = 0
         
-        fileNColumns = 0
+        ncol = None
         with open(fileName) as f:
             for line in f:
                 ind, haplotype, ncol = self.readInLine(line, startsnp = startsnp, stopsnp = stopsnp, idxExpected = None, ncol = ncol, dtype = np.int8, getInd=False)
@@ -507,7 +507,7 @@ class Pedigree(object):
     def readInPhase(self, fileName, startsnp=None, stopsnp = None):
         print("Reading in phase data:", fileName)
         index = 0
-        fileNColumns = 0
+        ncol = None
 
         with open(fileName) as f:
             e = 0
@@ -531,7 +531,7 @@ class Pedigree(object):
         
     def readInSequence(self, fileName, startsnp=None, stopsnp = None):
         index = 0
-        fileNColumns = 0
+        ncol = None
 
         print("Reading in sequence data :", fileName)
         with open(fileName) as f:
@@ -539,18 +539,18 @@ class Pedigree(object):
             currentInd = None
 
             for line in f:
-                ind, haplotype, ncol = self.readInLine(line, startsnp = startsnp, stopsnp = stopsnp, idxExpected = idxExpected, ncol = ncol, dtype = np.int64)
-
                 if e == 0: 
-                    currentInd = ind.idx
-                if currentInd != ind.idx:
-                    raise ValueError(f"Unexpected individual. Expecting individual {currentInd}, but got ind {ind.idx} on value {e}")
-                    
+                    idxExpected = None
+                else:
+                    idxExpected = currentInd.idx
 
-                ind.constructInfo(nLoci, reads=True)
+                ind, reads, ncol = self.readInLine(line, startsnp = startsnp, stopsnp = stopsnp, idxExpected = idxExpected, ncol = ncol, dtype = np.int64)
+                currentInd = ind
+                
+                ind.constructInfo(self.nLoci, reads=True)
                 ind.fileIndex['sequence'] = index; index += 1
 
-                ind.reads[e][:] = genotypes
+                ind.reads[e][:] = reads
                 e = 1-e
    
 
