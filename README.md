@@ -176,9 +176,9 @@ In this folder, there are a number of mandatory files, and some optional files.
 
 **setup.py** This is a python file that contains instructions for how to compile the python program. For an example, see the `setup.py` in `AlphaCall`. There may be a broader explanation for how `setup.py` files work in the future.
 
-**src** This folder contains all of the python source code for the project. A version of `tinyhouse` is likely also included here. In this folder there should be a sub-folder with the name of the package, e.g. `alphacall`. The main scripts should be included in this sub-folder. Due to the way python handles relative imports, there may be some scripts in `src` to enable running the code directly, without having to first install the program. These are there to help with debugging and testing functionality.
+**src** This folder contains all of the python source code for the project. A version of `tinyhouse` is likely also included here. In this folder there should be a sub-folder with the name of the package, e.g. `alphacall`. The main scripts should be included in this sub-folder. Due to the way python handles relative imports, there may be some scripts in `src` to enable running the code directly, without having to first install the program. These are there to help with debugging and testing functionality without having to build and re-install first.
 
-**tests** This folder should contain a set of tests to test the functionality of the program, including datasets required to run those tests (and potentially scripts to generate the data). The tests should be run-able with `./runTests.sh`, and should output success or failure. In the future there may be a more general way of running an entire suite of tests.
+**tests** This folder should contain scripts to test the functionality of the program. This may also include  datasets required to run those tests (and potentially scripts to generate the data). The tests should be run-able with `./runTests.sh`, and should output success or failure. In the future there may be a more general way of running tests across multiple programs.
 
 **example:** This folder should contain a simple example of the program. The example should run by calling `./runScript.sh`.
 
@@ -197,7 +197,7 @@ Need a lot of words here.
 BasicHMM.py 
 ----
 
-This module contains code to run a simple Li and Stephens style HMM based on a set of reference haplotypes. This was originally generated for TinyPlantImpute. There is a haploid and a diploid version. Both needs work. The primary functions are `haploidHMM` and `diploidHMM`. The haploid HMM takes in a single haplotype and a reference panel. The diploid HMM takes in an individual and a set of haplotype panels (for each sire/dam). There is an option to output either the called genotypes, dosages, or maximum likelihood (Viterbi) path, although not all of these algorithms are currently implemented. 
+This module contains code to run a simple Li and Stephens style HMM based on a set of reference haplotypes. This was originally generated for TinyPlantImpute. There is a haploid and a diploid version. Both need work. The primary functions are `haploidHMM` and `diploidHMM`. The haploid HMM takes in a single haplotype and a reference panel. The diploid HMM takes in an individual and a set of haplotype panels (for each sire/dam). There is an option to output either the called genotypes, dosages, or maximum likelihood (Viterbi) path, although not all of these algorithms are currently implemented for both options. 
 
 Pedigree.py 
 ----
@@ -220,10 +220,22 @@ libraries. These are solely used by AlphaImpute2, and will be better documented 
 
 Some programs 
 ===
+
 AlphaImpute2.0
+---
+AlphaImpute is an imputation program for going from a low density SNP array to a high density SNP array. It is currently a work in progress.
+
 AlphaPeel
+---
+AlphaPeel is a pedigree based imputation program. It is designed 
+
 AlphaCall
+---
+
+
 TinyPlantImpute
+---
+
+
 AlphaFamImpute
-
-
+---
