@@ -29,10 +29,10 @@ def getParser(program) :
     addInputFileParser(parser)
 
     #Genotype files.
-    output_options_parser = parser.add_argument_group("Output options")
+    # output_options_parser = parser.add_argument_group("Output options")
 
-    output_options_parser.add_argument('-writekey', default="id", required=False, type=str, help='Determines the order in which individuals are ordered in the output file based on their order in the corresponding input file. Animals not in the input file are placed at the end of the file and sorted in alphanumeric order. These animals can be surpressed with the "-onlykeyed" option. Options: id, pedigree, genotypes, sequence, segregation. Defualt: id.')
-    output_options_parser.add_argument('-onlykeyed', action='store_true', required=False, help='Flag to surpress the animals who are not present in the file used with -outputkey. Also surpresses "dummy" animals.')
+    # output_options_parser.add_argument('-writekey', default="id", required=False, type=str, help='Determines the order in which individuals are ordered in the output file based on their order in the corresponding input file. Animals not in the input file are placed at the end of the file and sorted in alphanumeric order. These animals can be surpressed with the "-onlykeyed" option. Options: id, pedigree, genotypes, sequence, segregation. Defualt: id.')
+    # output_options_parser.add_argument('-onlykeyed', action='store_true', required=False, help='Flag to surpress the animals who are not present in the file used with -outputkey. Also surpresses "dummy" animals.')
     
     if program == "AlphaImpute" :
         core_impute_parser = parser.add_argument_group("Impute options")
@@ -140,6 +140,11 @@ def addInputFileParser(parser):
     genotype_parser.add_argument('-startsnp',default=None, required=False, type=int, help='The first marker to consider. The first marker in the file is marker "1".')
     genotype_parser.add_argument('-stopsnp',default=None, required=False, type=int, help='The last marker to consider.')
     genotype_parser.add_argument('-seed',default=None, required=False, type=int, help='A random seed to use for debugging.')
+    
+    output_options_parser = parser.add_argument_group("Output options")
+
+    output_options_parser.add_argument('-writekey', default="id", required=False, type=str, help='Determines the order in which individuals are ordered in the output file based on their order in the corresponding input file. Animals not in the input file are placed at the end of the file and sorted in alphanumeric order. These animals can be surpressed with the "-onlykeyed" option. Options: id, pedigree, genotypes, sequence, segregation. Defualt: id.')
+    output_options_parser.add_argument('-onlykeyed', action='store_true', required=False, help='Flag to surpress the animals who are not present in the file used with -outputkey. Also surpresses "dummy" animals.')
 
 
 def parseArgs(program, parser = None):
