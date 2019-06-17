@@ -15,7 +15,7 @@ class Family(object):
         self.sire = sire
         self.dam = dam
         self.offspring = offspring
-        self.generation = max(sire.generation, dam.generation)
+        self.generation = max(sire.generation, dam.generation) + 1
 
         # Add this family to both the sire and dam's family.
         self.sire.families.append(self)
@@ -87,6 +87,8 @@ class Individual(object):
 
         self.genotypedFounderStatus = None #?
 
+    def __hash__(self):
+        return self.idn
 
     def getPercentMissing(self):
         return np.mean(self.genotypes == 9)
@@ -152,6 +154,33 @@ def sorted_nicely( l , key):
     alphanum_key = lambda k: [ convert(c) for c in re.split('([0-9]+)', str(key(k))) ] 
     return sorted(l, key = alphanum_key)
 
+
+class Generation(object):
+
+    def __init__(self, number):
+
+        self.number = number
+
+        self.families = []
+
+        self.individuals = []
+        self.sires = set()
+        self.dams = set()
+        self.parents = set()
+
+    def add_individual(self, ind):
+        self.individuals.append(ind)
+
+    def add_family(self, fam):
+        self.families.append(fam)
+        self.sires.add(fam.sire)
+        self.dams.add(fam.dam)
+        self.parents.add(fam.sire)
+        self.parents.add(fam.dam)
+        # Note: Individuals are added seperately.
+
+
+
 class Pedigree(object):
  
     def __init__(self, fileName = None, constructor = Individual):
@@ -159,18 +188,15 @@ class Pedigree(object):
         self.maxIdn = 0
         self.maxFam = 0
 
-        self.individuals =dict()
+        self.individuals = dict()
         self.families = None
         self.constructor = constructor
         self.nGenerations = 0
         self.generations = None #List of lists
-        self.genFamilies = None #list of lists of families.
+
         self.truePed = None
         self.nLoci = 0
         
-        self.mapSireToFamilies = None
-        self.mapDamToFamilies = None
-
         self.startsnp = 0
         self.endsnp = self.nLoci
 
@@ -183,24 +209,6 @@ class Pedigree(object):
 
         self.args = None
         self.writeOrderList = None
-
-    def setupFamilyMap(self):
-        self.mapSireToFamilies = dict()
-        self.mapDamToFamilies = dict()
-
-        for families in self.genFamilies:
-            for family in families:
-                sire = family.sire.idn
-                dam = family.dam.idn
-                fam = family.idn
-
-                if sire not in self.mapSireToFamilies:
-                    self.mapSireToFamilies[sire] = []
-                self.mapSireToFamilies[sire].append(fam)
-        
-                if dam not in self.mapDamToFamilies:
-                    self.mapDamToFamilies[dam] = []
-                self.mapDamToFamilies[dam].append(fam)
 
     def writeOrder(self):
         if self.writeOrderList is None:
@@ -246,15 +254,17 @@ class Pedigree(object):
         if self.generations is None:
             self.setUpGenerations()
         for gen in self.generations:
-            for ind in gen:
+            for ind in gen.individuals:
                 yield ind
 
     def __reversed__(self) :
         if self.generations is None:
             self.setUpGenerations()
         for gen in reversed(self.generations):
-            for ind in gen:
+            for ind in gen.individuals:
                 yield ind
+
+    # Generation code
 
     def setUpGenerations(self) :
         self.nGenerations = 0
@@ -264,11 +274,11 @@ class Pedigree(object):
             self.nGenerations = max(gen, self.nGenerations)
         self.nGenerations += 1 #To account for generation 0. 
 
-        self.generations = [[] for i in range(self.nGenerations)]
+        self.generations = [Generation(i) for i in range(self.nGenerations)]
 
         for idx, ind in self.individuals.items():
             gen = ind.getGeneration()
-            self.generations[gen].append(ind)
+            self.generations[gen].add_individual(ind)
 
     #This is really sloppy, but probably not important.
     def setupFamilies(self) :
@@ -286,14 +296,10 @@ class Pedigree(object):
                     self.families[parents] = Family(self.maxFam, ind.sire, ind.dam, [ind])
                     self.maxFam += 1
 
-        self.genFamilies = [[] for i in range(self.nGenerations)]
         
         for family in self.families.values():
-            self.genFamilies[family.generation].append(family)
+            self.generations[family.generation].add_family(family)
     
-    def setProxys(self) :
-        for family in self.families.values():
-            family.setProxy()
 
     def getFamilies(self, rev = False) :
         if self.generations is None:
@@ -301,14 +307,15 @@ class Pedigree(object):
         if self.families is None:
             self.setupFamilies()
 
-        gens = range(0, len(self.genFamilies))
+        gens = range(0, len(self.generations))
         if rev: gens = reversed(gens)
 
         for i in gens:
-            print(i)
-            for family in self.genFamilies[i]:
+            for family in self.generations[i].families:
                 yield family
  
+
+
     def getIndividual(self, idx) :
         if idx not in self.individuals:
             self.individuals[idx] = self.constructor(idx, self.maxIdn)
