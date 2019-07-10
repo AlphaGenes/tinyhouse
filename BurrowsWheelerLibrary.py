@@ -51,6 +51,21 @@ class jit_BurrowsWheelerLibrary():
     def getValues(self):
         return (self.a, self.d, self.nZeros, self.zeroOccPrev, self.haps)
 
+
+    def update_state(self, state, index):
+        pass
+
+    def get_null_state(self, value, index):
+        if value == 0:
+            lowerR = 0
+            upperR = nZeros[stop-1]
+
+        if value == 1:
+            lowerR = nZeros[stop-1]
+            upperR = nHaps
+
+        pass
+
 @njit
 def createBWLibrary(haps):
     
