@@ -97,8 +97,134 @@ def getHaploidPointEstimates(targetHaplotype, sourceHaplotypes, error) :
                     pointMat[j, i] = error[i]
     return pointMat
 
+
 @jit(nopython=True)
-def haploidForwardBackward(pointEst, recombinationRate) :
+def haploidTransform(point_estimate, previous, recombination_rate):
+    """Transforms a previous generated probability distribution (over haplotypes, at a single locus) by 
+    emission probabilities (point_estimates) and transition probabilities (recombination_rate). 
+    This is a core step in the forward and backward algorithms
+    
+    previous            probability distribution over haplotypes (hidden states) - (1D NumPy array)
+    point_estimates     emission probabilities - (1D NumPy array)
+    recombination_rate  recombination rate at this locus - (scalar)
+    """
+    
+    e1 = 1-recombination_rate
+    e = recombination_rate    
+    est = np.empty_like(point_estimate, dtype=np.float32)
+   
+    # Get estimate (at this locus) and normalize.
+    n_haps = len(point_estimate)
+    for j in range(n_haps):
+        est[j] = previous[j]*point_estimate[j]        
+    sum_j = 0
+    for j in range(n_haps):
+        sum_j += est[j]
+    for j in range(n_haps):
+        est[j] = est[j]/sum_j
+
+    # Account for recombination rate
+    for j in range(n_haps):
+        est[j] = est[j]*e1 + e/n_haps
+        
+    return est
+
+
+@jit(nopython=True)
+def haploidForward(point_estimate, recombination_rate):
+    """Calculate forward probabilities"""
+
+    n_haps, n_loci = point_estimate.shape
+    est = point_estimate.copy()
+    new = np.empty(n_haps, dtype = np.float32)
+    prev = np.ones(n_haps, dtype = np.float32)
+
+    for i in range(1, n_loci):
+        # Get estimate at this locus and normalize.
+        new = haploidTransform(point_estimate[:, i-1], prev, recombination_rate[i])
+
+        # Add to est
+        for j in range(n_haps):
+            est[j, i] *= new[j]
+        prev = new
+        
+    # Return normalized estimates 
+    return est / np.sum(est, axis=0)
+
+
+@jit(nopython=True)
+def haploidBackward(point_estimate, recombination_rate):
+    """Calculate backward probabilities"""
+   
+    n_haps, n_loci = point_estimate.shape
+    est = np.ones_like(point_estimate, dtype=np.float32)
+    new = np.empty(n_haps, dtype=np.float32)
+    prev = np.ones(n_haps, dtype=np.float32)  
+    
+    for i in range(n_loci-2, -1, -1):  # zero indexed then minus one since we skip the boundary
+        # Get estimate at this locus and normalize.
+        new = haploidTransform(point_estimate[:, i+1], prev, recombination_rate[i+1])
+
+        # Add to est
+        for j in range(n_haps):
+            est[j, i] *= new[j]      
+        prev = new
+        
+    # Return normalized estimates 
+    return est / np.sum(est, axis=0)
+
+
+@jit(nopython=True)
+def haploidForwardBackward2(point_estimate, recombination_rate):
+    """Calculate state probabilities at each locus using the forward-backward algorithm
+    Note: this intuitive implemention is slightly slower than haploidForwardBackward()"""
+
+    est = haploidForward(point_estimate, recombination_rate) * haploidBackward(point_estimate, recombination_rate)
+    
+    # Return normalized probabilities
+    return est / np.sum(est, axis=0)    
+    
+    
+@jit(nopython=True)
+def haploidForwardBackward(point_estimate, recombination_rate):
+    """Calculate state probabilities at each locus using the forward-backward algorithm
+    Note: this implemention, that explicitly combines the code from haploidForward() and haploidBackward(), 
+    is slightly faster than the more intuitive haploidForwardBackward2()"""
+
+    n_haps, n_loci = point_estimate.shape
+    est = point_estimate.copy()
+    new = np.empty(n_haps, dtype = np.float32)
+    prev = np.ones(n_haps, dtype = np.float32)
+
+    # Forward algorithm
+    for i in range(1, n_loci):
+        # Get estimate at this locus and normalize.
+        new = haploidTransform(point_estimate[:, i-1], prev, recombination_rate[i])
+
+        # Add to est
+        for j in range(n_haps):
+            est[j, i] *= new[j]
+        prev = new
+
+    # Backward algorithm
+    prev = np.ones(n_haps, dtype=np.float32)  
+    for i in range(n_loci-2, -1, -1):  # zero indexed then minus one since we skip the boundary
+        # Get estimate at this locus and normalize.
+        new = haploidTransform(point_estimate[:, i+1], prev, recombination_rate[i+1])
+
+        # Add to est
+        for j in range(n_haps):
+            est[j, i] *= new[j]      
+        prev = new
+        
+    # Return normalized estimates 
+    return est / np.sum(est, axis=0)
+
+
+@jit(nopython=True)
+def haploidForwardBackwardOriginal(pointEst, recombinationRate):
+    """The original implementation of the forward-backward algorithm, temporarily kept for possible performance comparisons"""
+    
     #This is probably way more fancy than it needs to be -- particularly it's low memory impact, but I think it works.
     nHaps, nLoci = pointEst.shape
 
