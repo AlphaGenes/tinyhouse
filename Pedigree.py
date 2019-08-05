@@ -4,6 +4,7 @@ from numba import jit, int8, int64, boolean, deferred_type, optional, jitclass, 
 from collections import OrderedDict
 from . import InputOutput
 from . import ProbMath
+from . import MultiThreadIO
 
 
 
@@ -587,16 +588,29 @@ class Pedigree(object):
 
 
     def writeGenotypes(self, outputFile):
-        with open(outputFile, 'w+') as f:
-            for idx, ind in self.individuals.items():
-                self.writeLine(f, ind.idx, ind.genotypes, str)
+
+        data_list = []
+        for ind in self :
+            data_list.append( (ind.idx, ind.genotypes) )
+
+        MultiThreadIO.writeLines(outputFile, data_list, str)
+        # with open(outputFile, 'w+') as f:
+        #     for idx, ind in self.individuals.items():
+        #         self.writeLine(f, ind.idx, ind.genotypes, str)
 
     def writePhase(self, outputFile):
-        with open(outputFile, 'w+') as f:
-            for idx, ind in self.individuals.items():
+        data_list = []
+        for ind in self :
+            data_list.append( (ind.idx, ind.haplotypes[0]) )
+            data_list.append( (ind.idx, ind.haplotypes[1]) )
 
-                self.writeLine(f, ind.idx, ind.haplotypes[0], str)
-                self.writeLine(f, ind.idx, ind.haplotypes[1], str)
+        MultiThreadIO.writeLines(outputFile, data_list, str)
+
+        # with open(outputFile, 'w+') as f:
+        #     for idx, ind in self.individuals.items():
+
+        #         self.writeLine(f, ind.idx, ind.haplotypes[0], str)
+        #         self.writeLine(f, ind.idx, ind.haplotypes[1], str)
 
 
 
@@ -628,13 +642,7 @@ class Pedigree(object):
         f.write(idx + ' ' + ' '.join(map(func, data)) + '\n')
 
 
-    # def writeSeg(self, outputFile):
-    #     with open(outputFile, 'w+') as f:
-    #         for idx, ind in self.individuals.items():
-    #             # Imputation.ind_assignOrigin(ind)
-    #             if ind.segregation is not None:
-    #                 f.write(ind.idx + ' ' + ' '.join(map(str, Imputation.getSegregation(self.nLoci, ind.segregation[0]))) + '\n')
-    #                 f.write(ind.idx + ' ' + ' '.join(map(str, Imputation.getSegregation(self.nLoci, ind.segregation[1]))) + '\n')
+
 @jit(nopython=True)
 def fill(genotypes, fillValue):
     for i in range(len(genotypes)):
