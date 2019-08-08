@@ -480,7 +480,6 @@ class Pedigree(object):
 
         print("Reading in AlphaImpute Format:", fileName)
         index = 0
-        
         ncol = None
 
         data_list = MultiThreadIO.readLines(fileName, startsnp = startsnp, stopsnp = stopsnp, dtype = np.int8)
@@ -500,36 +499,38 @@ class Pedigree(object):
 
         print("Reading in reference panel:", fileName)
         index = 0
-        
         ncol = None
-        with open(fileName) as f:
-            for line in f:
-                ind, haplotype, ncol = self.readInLine(line, startsnp = startsnp, stopsnp = stopsnp, idxExpected = None, ncol = ncol, dtype = np.int8, getInd=False)
-                self.referencePanel.append(haplotype)
+
+        data_list = MultiThreadIO.readLines(fileName, startsnp = startsnp, stopsnp = stopsnp, dtype = np.int8)
+
+        for value in data_list:
+            ind, haplotype, ncol = self.check_line(value, idxExpected = None, ncol = ncol, getInd=False)
+            self.referencePanel.append(haplotype)
 
     def readInPhase(self, fileName, startsnp=None, stopsnp = None):
         print("Reading in phase data:", fileName)
         index = 0
         ncol = None
 
-        with open(fileName) as f:
-            e = 0
-            currentInd = None
+        data_list = MultiThreadIO.readLines(fileName, startsnp = startsnp, stopsnp = stopsnp, dtype = np.int8)
 
-            for line in f:
-                if e == 0: 
-                    idxExpected = None
-                else:
-                    idxExpected = currentInd.idx
+        e = 0
+        currentInd = None
+        for value in data_list:
 
-                ind, haplotype, ncol = self.readInLine(line, startsnp = startsnp, stopsnp = stopsnp, idxExpected = idxExpected, ncol = ncol, dtype = np.int8)
-                currentInd = ind
+            if e == 0: 
+                idxExpected = None
+            else:
+                idxExpected = currentInd.idx
 
-                ind.constructInfo(self.nLoci, haps=True)
-                ind.haplotypes[e][:] = haplotype
-                e = 1-e
+            ind, haplotype, ncol = self.check_line(value, idxExpected = idxExpected, ncol = ncol)
+            currentInd = ind
 
-                ind.fileIndex['phase'] = index; index += 1
+            ind.constructInfo(self.nLoci, haps=True)
+            ind.haplotypes[e][:] = haplotype
+            e = 1-e
+
+            ind.fileIndex['phase'] = index; index += 1
 
         
     def readInSequence(self, fileName, startsnp=None, stopsnp = None):
@@ -537,25 +538,26 @@ class Pedigree(object):
         ncol = None
 
         print("Reading in sequence data :", fileName)
-        with open(fileName) as f:
-            e = 0
-            currentInd = None
+        
+        data_list = MultiThreadIO.readLines(fileName, startsnp = startsnp, stopsnp = stopsnp, dtype = np.int64)
+        e = 0
+        currentInd = None
 
-            for line in f:
-                if e == 0: 
-                    idxExpected = None
-                else:
-                    idxExpected = currentInd.idx
+        for value in data_list:
+            if e == 0: 
+                idxExpected = None
+            else:
+                idxExpected = currentInd.idx
 
-                ind, reads, ncol = self.readInLine(line, startsnp = startsnp, stopsnp = stopsnp, idxExpected = idxExpected, ncol = ncol, dtype = np.int64)
-                currentInd = ind
+            ind, reads, ncol = self.readInLine(value, idxExpected = idxExpected, ncol = ncol)
+            currentInd = ind
 
-                ind.constructInfo(self.nLoci, reads=True)
-                ind.fileIndex['sequence'] = index; index += 1
+            ind.constructInfo(self.nLoci, reads=True)
+            ind.fileIndex['sequence'] = index; index += 1
 
-                ind.reads[e][:] = reads
-                e = 1-e
-   
+            ind.reads[e][:] = reads
+            e = 1-e
+
 
     def callGenotypes(self, threshold):
         for idx, ind in self.writeOrder():

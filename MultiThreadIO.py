@@ -61,7 +61,7 @@ def process_input_line(line, startsnp, stopsnp, dtype):
 
 
 def readLines(fileName, startsnp, stopsnp, dtype):
-    print(f"Reading in file: {fileName}")
+    # print(f"Reading in file: {fileName}")
 
     iothreads = InputOutput.args.iothreads
 
