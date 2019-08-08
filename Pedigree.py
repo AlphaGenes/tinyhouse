@@ -549,7 +549,7 @@ class Pedigree(object):
             else:
                 idxExpected = currentInd.idx
 
-            ind, reads, ncol = self.readInLine(value, idxExpected = idxExpected, ncol = ncol)
+            ind, reads, ncol = self.check_line(value, idxExpected = idxExpected, ncol = ncol)
             currentInd = ind
 
             ind.constructInfo(self.nLoci, reads=True)
