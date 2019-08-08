@@ -451,33 +451,26 @@ class Pedigree(object):
                 ind.initHD = True
 
 
-    def readInLine(self, line, startsnp, stopsnp, idxExpected = None, ncol = None, dtype = np.int8, getInd = True):
-        parts = line.split(); 
-        idx = parts[0]
+    
+    def check_line(self, id_data, idxExpected = None, ncol = None, getInd = True):
+        idx, data = id_data
 
         if idxExpected is not None and idx != idxExpected:
             raise ValueError(f"Expected individual {idxExpected} but got individual {idx}")
 
         if ncol is None:
-            ncol = len(parts)
-        if ncol != len(parts):
-            raise ValueError(f"Incorrect number of columns in {fileName}. Expected {ncol} values but got {len(parts)} for individual {idx}.")
+            ncol = len(data)
+        if ncol != len(data):
+            raise ValueError(f"Incorrect number of columns in {fileName}. Expected {ncol} values but got {len(data)} for individual {idx}.")
 
-        parts = parts[1:]
-        if startsnp is not None :
-            if self.nLoci == 0:
-                print("Setting number of loci from start/stopsnp")
-                self.nLoci = stopsnp - startsnp + 1 #Override to make sure we get the right number of values.
-            parts = parts[startsnp : stopsnp + 1] #Offset 1 for id and 2 for id + include stopsnp
-        data=np.array([int(val) for val in parts], dtype = dtype)
         
-        nLoci = len(parts)
+        nLoci = len(data)
         if self.nLoci == 0:
             self.nLoci = nLoci
         if self.nLoci != nLoci:
             raise ValueError(f"Incorrect number of values from {fileName}. Expected {self.nLoci} got {nLoci}.")
-        ind = None
 
+        ind = None
         if getInd :
             ind = self.getIndividual(idx)
 
@@ -489,17 +482,19 @@ class Pedigree(object):
         index = 0
         
         ncol = None
-        with open(fileName) as f:
-            for line in f:
-                ind, genotypes, ncol = self.readInLine(line, startsnp = startsnp, stopsnp = stopsnp, idxExpected = None, ncol = ncol, dtype = np.int8)
 
-                ind.constructInfo(self.nLoci, genotypes=True)
-                ind.genotypes = genotypes
+        data_list = MultiThreadIO.readLines(fileName, startsnp = startsnp, stopsnp = stopsnp, dtype = np.int8)
 
-                ind.fileIndex['genotypes'] = index; index += 1
+        for value in data_list:
+            ind, genotypes, ncol = self.check_line(value, idxExpected = None, ncol = ncol)
 
-                if np.mean(genotypes == 9) < .1 :
-                    ind.initHD = True
+            ind.constructInfo(self.nLoci, genotypes=True)
+            ind.genotypes = genotypes
+
+            ind.fileIndex['genotypes'] = index; index += 1
+
+            if np.mean(genotypes == 9) < .1 :
+                ind.initHD = True
 
     def readInReferencePanel(self, fileName, startsnp=None, stopsnp = None):
 

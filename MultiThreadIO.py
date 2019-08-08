@@ -1,7 +1,8 @@
 import concurrent.futures
-from . import InputOutput
 import itertools
-
+import numpy as np
+import math
+from . import InputOutput
 
 def convert_data_to_line(data_tuple, fmt) :
     idx, data = data_tuple
@@ -43,4 +44,42 @@ def split_by(array, step):
         output.append(array[start:stop])
         i += 1
     return output
+
+
+
+def process_input_line(line, startsnp, stopsnp, dtype):
+    parts = line.split(); 
+    idx = parts[0]
+    parts = parts[1:]
+
+    if startsnp is not None :
+        parts = parts[startsnp : stopsnp + 1] #Offset 1 for id and 2 for id + include stopsnp
+
+    data=np.array([int(val) for val in parts], dtype = dtype)
+
+    return (idx, data)
+
+
+def readLines(fileName, startsnp, stopsnp, dtype):
+    print(f"Reading in file: {fileName}")
+
+    iothreads = InputOutput.args.iothreads
+
+    output = []
+    with open(fileName) as f:
+
+        if iothreads > 1:
+            # This could be more efficient, but it's dwarfed by some of the other stuff in the program.
+            # i.e. line is roughly the same size as the haplotypes (2 bytes per genotype value, i.e. (space)(value); and two values per haplotype.
+            lines = [line for line in f]
+            with concurrent.futures.ProcessPoolExecutor(max_workers = iothreads) as executor:
+                output = executor.map(process_input_line, lines, itertools.repeat(startsnp), itertools.repeat(stopsnp), itertools.repeat(dtype), chunksize=1000)
+
+        if iothreads <= 1:
+            for line in f:
+                output.append(process_input_line(line, startsnp = startsnp, stopsnp = stopsnp, dtype = dtype))
+
+    return output
+
+
 
