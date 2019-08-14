@@ -134,7 +134,63 @@ def haploidTransformProbs(previous, estimate, point_estimate, recombination_rate
         estimate[j] *= new[j]
         previous[j] = new[j]
 
+      
+@jit(nopython=True)
+def haploidOneSample(forward_probs, recombination_rate):
+    """Sample one haplotype (an individual) from the forward and backward probability distributions
+    Returns two arrays:
+      sample_indices   array of indices of haplotypes in the haplotype library at each locus
+                       e.g. an individual composed of haplotypes 13 and 42 with 8 loci: [42, 42, 42, 42, 42, 13, 13, 13]
+                       
+      samples          sampled probabilities (either 0 or 1) with shape (n_haps, n_loci)  - used to check 
+                       that the average of many samples converge to the forward_backward probability distribution 
+    
+    A description of the sampling process would be nice here..."""
+    
+    est = forward_probs.copy()  # copy so that forward_probs is not modified
+    n_haps, n_loci = forward_probs.shape
+    prev = np.ones(n_haps, dtype=np.float32)
+
+    samples = np.empty(forward_probs.shape, dtype=np.int64)
+    sample_indices = np.empty(n_loci, dtype=np.int64)
+
+    # eps is the smallest representable positive number and used in the normalization denominator below 
+    # this keeps np.random.multinomial() from complaining that the sum of probabilites [ sum(pvals[:-1]) ] is greater than one 
+    # This could be a NumPy bug as it is fine with the np.float64
+    eps = np.finfo(np.float32).eps
+       
+    # Backwards step
+    for i in range(n_loci-2, -1, -1): # zero indexed then minus one since we skip the boundary
+        # Sample at this locus (use of np.random.multinomial could probably be improved with a Numba version)
+        samples[:, i+1] = np.random.multinomial(n=1, pvals=est[:, i+1])
+        sample_indices[i+1] = np.argmax(samples[:, i+1])
         
+        # Get estimate at this locus using the *sampled* distribution (instead of the point estimates/emission probabilities)
+        haploidTransformProbs(prev, est[:, i], samples[:, i+1], recombination_rate[i+1])
+        
+        # Normalise at this locus (so that sampling can happen next time round the loop)
+        est[:, i] = est[:, i] / (np.sum(est[:, i]) + eps)        
+    
+    # Last sample (at the first locus)
+    samples[:, 0] = np.random.multinomial(n=1, pvals=est[:, 0])
+    sample_indices[0] = np.argmax(samples[:, 0])
+
+    return sample_indices, samples
+
+
+@jit(nopython=True)
+def haploidSample(forward_probs, recombination_rate, n_samples):
+    """Generate a number of sampled haplotypes
+    Returns an array of shape (n_samples, n_loci) where the entries are indices of haplotypes in the haplotype library"""
+    
+    n_loci = forward_probs.shape[1]
+    sample_indices = np.empty((n_samples, n_loci))
+    for i in range(n_samples):
+        sample_indices[i, :], _ = haploidOneSample(forward_probs, recombination_rate)
+        
+    return sample_indices
+
+
 @jit(nopython=True)
 def haploidForward(point_estimate, recombination_rate):
     """Calculate forward probabilities"""
@@ -249,6 +305,8 @@ def haploidForwardBackwardOriginal(pointEst, recombinationRate):
             est[j,i] = est[j,i]/sum_j
 
     return(est)
+
+
 
 
 
