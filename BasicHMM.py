@@ -184,7 +184,7 @@ def haploidSample(forward_probs, recombination_rate, n_samples):
     Returns an array of shape (n_samples, n_loci) where the entries are indices of haplotypes in the haplotype library"""
     
     n_loci = forward_probs.shape[1]
-    sample_indices = np.empty((n_samples, n_loci))
+    sample_indices = np.empty((n_samples, n_loci), dtype=np.int64)
     for i in range(n_samples):
         sample_indices[i, :], _ = haploidOneSample(forward_probs, recombination_rate)
         
