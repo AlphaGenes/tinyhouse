@@ -46,9 +46,12 @@ def haploidHMM(targetHaplotype, sourceHaplotypes, error, recombinationRate, thre
     if callingMethod == "dosages" :
         dosages = getHaploidDosages(hapEst, sourceHaplotypes)
         return dosages
+    if callingMethod == 'sampler':
+        dosages = getSampledDosages(pointEst, sourceHaplotypes)
 
     if callingMethod == "viterbi" :
         raise ValueError("Viterbi not yet implimented.")
+
 
 @jit(nopython=True)
 def getHaploidDosages(hapEst, sourceHaplotypes):
@@ -141,10 +144,10 @@ def haploidOneSample(forward_probs, recombination_rate):
     Returns two arrays:
       sample_indices   array of indices of haplotypes in the haplotype library at each locus
                        e.g. an individual composed of haplotypes 13 and 42 with 8 loci: [42, 42, 42, 42, 42, 13, 13, 13]
-                       
-      samples          sampled probabilities (either 0 or 1) with shape (n_haps, n_loci)  - used to check 
-                       that the average of many samples converge to the forward_backward probability distribution 
-    
+
+      samples          sampled probabilities (either 0 or 1) with shape (n_haps, n_loci)  - used to check
+                       that the average of many samples converges to the forward_backward probability distribution
+
     A description of the sampling process would be nice here..."""
     
     est = forward_probs.copy()  # copy so that forward_probs is not modified
@@ -179,16 +182,25 @@ def haploidOneSample(forward_probs, recombination_rate):
 
 
 @jit(nopython=True)
-def haploidSample(forward_probs, recombination_rate, n_samples):
-    """Generate a number of sampled haplotypes
-    Returns an array of shape (n_samples, n_loci) where the entries are indices of haplotypes in the haplotype library"""
-    
-    n_loci = forward_probs.shape[1]
-    sample_indices = np.empty((n_samples, n_loci), dtype=np.int64)
-    for i in range(n_samples):
-        sample_indices[i, :], _ = haploidOneSample(forward_probs, recombination_rate)
-        
-    return sample_indices
+def haploidSampler(forward_probs, haplotype_library, recombination_rate):
+    """Sample one haplotype (an individual) from the forward and backward probability distributions
+    Returns: a sampled haploytpe of length n_loci"""
+    indices, _ = haploidOneSample(forward_probs, recombination_rate)
+    return haplotypeFromHaplotypeIndices(indices, haplotype_library)
+
+
+@jit(nopython=True)
+def haplotypeFromHaplotypeIndices(indices, haplotype_library):
+    """Helper function that takes an array of indices (for each locus) that 'point' to rows in a haplotype library and
+    extracts the alleles from the corresponding haplotypes in the library
+    Returns: a haplotype array of length n_loci"""
+
+    n_loci = len(indices)
+    haplotype = np.empty(n_loci, dtype=np.int8)
+    for col_idx in range(n_loci):
+        row_idx = indices[col_idx]
+        haplotype[col_idx] = haplotype_library[row_idx, col_idx]
+    return haplotype
 
 
 @jit(nopython=True)
