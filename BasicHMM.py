@@ -3,7 +3,7 @@ import numpy as np
 from . import ProbMath
 
 
-def haploidHMM(targetHaplotype, sourceHaplotypes, error, recombinationRate, threshold = 0.9, callingMethod = "dosages"):
+def haploidHMM(targetHaplotype, sourceHaplotypes, error, recombinationRate, threshold=0.9, n_samples=10, callingMethod="dosages"):
 
     nLoci = len(targetHaplotype)
 
@@ -25,7 +25,9 @@ def haploidHMM(targetHaplotype, sourceHaplotypes, error, recombinationRate, thre
     pointEst = getHaploidPointEstimates(targetHaplotype, sourceHaplotypes, error)
     ### Run forward-backward algorithm on penetrance values.
 
-    hapEst = haploidForwardBackward(pointEst, recombinationRate)
+    # Don't need forward backward probabilites if using the sampler method
+    if callingMethod != 'sampler':
+        hapEst = haploidForwardBackward(pointEst, recombinationRate)
 
     # for i in range(nLoci) :
     #     print(hapEst[:,i])
@@ -47,7 +49,8 @@ def haploidHMM(targetHaplotype, sourceHaplotypes, error, recombinationRate, thre
         dosages = getHaploidDosages(hapEst, sourceHaplotypes)
         return dosages
     if callingMethod == 'sampler':
-        dosages = getSampledDosages(pointEst, sourceHaplotypes)
+        dosages = getSampledDosages(pointEst, sourceHaplotypes, recombinationRate, n_samples)
+        return dosages
 
     if callingMethod == "viterbi" :
         raise ValueError("Viterbi not yet implimented.")
@@ -61,6 +64,22 @@ def getHaploidDosages(hapEst, sourceHaplotypes):
         for j in range(nHaps):
             dosages[i] += sourceHaplotypes[j, i]*hapEst[j,i]
     return dosages
+
+
+@jit(nopython=True)
+def getSampledDosages(point_estimates, haplotype_library, recombination_rate, n_samples=10):
+    """Calculate dosages for a single haplotype by sampling"""
+
+    # Pre-calculate forward probabilities
+    forward_probs = haploidForward(point_estimates, recombination_rate)
+
+    # Update sampled dosages as the mean of each sample
+    n_loci = point_estimates.shape[1]
+    dosages = np.zeros(n_loci, dtype=np.float32)
+    for i in range(n_samples):
+        dosages += haploidSampler(forward_probs, haplotype_library, recombination_rate)
+    return dosages / n_samples
+
 
 @jit(nopython=True)
 def haploidCallHaps(hapEst, threshold ):
