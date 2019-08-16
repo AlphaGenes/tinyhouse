@@ -19,8 +19,6 @@ except ImportError:
 ##Global: 
 args = None
 
-
-
 def getParser(program) :
     parser = argparse.ArgumentParser(description='')
     core_parser = parser.add_argument_group("Core arguments")
@@ -34,6 +32,9 @@ def getParser(program) :
     # output_options_parser.add_argument('-writekey', default="id", required=False, type=str, help='Determines the order in which individuals are ordered in the output file based on their order in the corresponding input file. Animals not in the input file are placed at the end of the file and sorted in alphanumeric order. These animals can be surpressed with the "-onlykeyed" option. Options: id, pedigree, genotypes, sequence, segregation. Defualt: id.')
     # output_options_parser.add_argument('-onlykeyed', action='store_true', required=False, help='Flag to surpress the animals who are not present in the file used with -outputkey. Also surpresses "dummy" animals.')
     
+    if program == "Default":
+        pass
+
     if program == "AlphaImpute" :
         core_impute_parser = parser.add_argument_group("Impute options")
         core_impute_parser.add_argument('-no_impute', action='store_true', required=False, help='Flag to read in the files but not perform imputation.')
@@ -147,43 +148,51 @@ def addInputFileParser(parser):
     output_options_parser.add_argument('-onlykeyed', action='store_true', required=False, help='Flag to surpress the animals who are not present in the file used with -outputkey. Also surpresses "dummy" animals.')
     output_options_parser.add_argument('-iothreads', default=1, required=False, type=int, help='Number of threads to use for io. Default: 1.')
 
-def parseArgs(program, parser = None):
+def parseArgs(program, parser = None, no_args = False):
     global args
-    args = rawParseArgs(program, parser)
+    args = rawParseArgs(program, parser, no_args = no_args)
     args.program = program
 
+    # We want start/stop snp to be in python format (i.e. 0 to n-1).
+    # Input values are between 1 to n.
     if args.startsnp is not None:
         args.startsnp -= 1
         args.stopsnp -= 1
     ##Add any necessary code to check args here.
     return args
 
-def rawParseArgs(program, parser = None) :
+def rawParseArgs(program, parser = None, no_args = False) :
     if parser is None:
         parser = getParser(program)
 
-    args = sys.argv[1:]
-    if len(args) == 0 : 
-        parser.print_help(sys.stderr)
-        sys.exit(1)
+    if no_args:
+        return parser.parse_args(["-out", "out"])
 
-    
-    if len(args) == 1:
-        with open(args[0]) as f:
-            args = []
-            for line in f:
-                if line[0] != "-": line = "-" + line
-                args.extend(re.split(r"[,|\s|\n]+",line))
-    for arg in args:
-        if len(arg) == 0:
-            args.remove(arg)
+    else:
+        args = sys.argv[1:]
+        if len(args) == 0 : 
+            parser.print_help(sys.stderr)
+            sys.exit(1)
 
-    for i, arg in enumerate(args):
-        if len(arg) > 0 and arg[0] == "-":
-            args[i] = str.lower(arg)
+        
+        if len(args) == 1:
+            with open(args[0]) as f:
+                args = []
+                for line in f:
+                    if line[0] != "-": line = "-" + line
+                    args.extend(re.split(r"[,|\s|\n]+",line))
+        for arg in args:
+            if len(arg) == 0:
+                args.remove(arg)
 
-    return parser.parse_args(args)
+        for i, arg in enumerate(args):
+            if len(arg) > 0 and arg[0] == "-":
+                args[i] = str.lower(arg)
 
+        return parser.parse_args(args)
+
+
+parseArgs("Default", parser = None, no_args = True)
 
 @jit(nopython=True)
 def setNumbaSeeds(seed):
