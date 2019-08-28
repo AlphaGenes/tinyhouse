@@ -1,4 +1,4 @@
-from numba import jit
+from numba import jit, int64, float32
 import numpy as np
 from . import ProbMath
 
@@ -176,25 +176,20 @@ def haploidOneSample(forward_probs, recombination_rate):
     samples = np.empty(forward_probs.shape, dtype=np.int64)
     sample_indices = np.empty(n_loci, dtype=np.int64)
 
-    # eps is the smallest representable positive number and used in the normalization denominator below 
-    # this keeps np.random.multinomial() from complaining that the sum of probabilites [ sum(pvals[:-1]) ] is greater than one 
-    # This could be a NumPy bug as it is fine with the np.float64
-    eps = np.finfo(np.float32).eps
-       
     # Backwards step
     for i in range(n_loci-2, -1, -1): # zero indexed then minus one since we skip the boundary
-        # Sample at this locus (use of np.random.multinomial could probably be improved with a Numba version)
-        samples[:, i+1] = np.random.multinomial(n=1, pvals=est[:, i+1])
+        # Sample at this locus
+        samples[:, i+1] = multinomial_sample(pvals=est[:, i+1])
         sample_indices[i+1] = np.argmax(samples[:, i+1])
         
         # Get estimate at this locus using the *sampled* distribution (instead of the point estimates/emission probabilities)
         haploidTransformProbs(prev, est[:, i], samples[:, i+1], recombination_rate[i+1])
         
         # Normalise at this locus (so that sampling can happen next time round the loop)
-        est[:, i] = est[:, i] / (np.sum(est[:, i]) + eps)        
+        est[:, i] = est[:, i] / np.sum(est[:, i])
     
     # Last sample (at the first locus)
-    samples[:, 0] = np.random.multinomial(n=1, pvals=est[:, 0])
+    samples[:, 0] = multinomial_sample(pvals=est[:, 0])
     sample_indices[0] = np.argmax(samples[:, 0])
 
     return sample_indices, samples
@@ -338,7 +333,23 @@ def haploidForwardBackwardOriginal(pointEst, recombinationRate):
     return(est)
 
 
+# Not sure this file is the best place for this function
+@jit(int64[:](float32[:]), nopython=True, nogil=True)
+def multinomial_sample(pvals):
+    """Draw one sample from a multinomial distribution (similar to np.random.multinomial)"""
 
+    # random float in the half-open interval [0.0, np.sum(pvals))
+    rand = np.random.random() * np.sum(pvals)
+    # cumulative sum is same type as pvals (float32) so that the sum of pvals is always less than rand
+    cumsum = np.float32(0.0)
+    output = np.zeros_like(pvals, dtype=np.int64)
+    for i, p in enumerate(pvals):
+        cumsum += p
+        if rand < cumsum:
+            output[i] = 1
+            break
+
+    return output
 
 
 # targetHaplotype = np.array([0, 0, 9, 0, 9, 9, 1, 1], dtype = np.int8)
