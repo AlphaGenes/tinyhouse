@@ -1,6 +1,7 @@
 from numba import jit, int64, float32
 import numpy as np
 from . import ProbMath
+from . import NumbaUtils
 
 
 def haploidHMM(targetHaplotype, sourceHaplotypes, error, recombinationRate, threshold=0.9, n_samples=10, callingMethod="dosages"):
@@ -179,7 +180,7 @@ def haploidOneSample(forward_probs, recombination_rate):
     # Backwards step
     for i in range(n_loci-2, -1, -1): # zero indexed then minus one since we skip the boundary
         # Sample at this locus
-        samples[:, i+1] = multinomial_sample(pvals=est[:, i+1])
+        samples[:, i+1] = NumbaUtils.multinomial_sample(pvals=est[:, i+1])
         sample_indices[i+1] = np.argmax(samples[:, i+1])
         
         # Get estimate at this locus using the *sampled* distribution (instead of the point estimates/emission probabilities)
@@ -189,7 +190,7 @@ def haploidOneSample(forward_probs, recombination_rate):
         est[:, i] = est[:, i] / np.sum(est[:, i])
     
     # Last sample (at the first locus)
-    samples[:, 0] = multinomial_sample(pvals=est[:, 0])
+    samples[:, 0] = NumbaUtils.multinomial_sample(pvals=est[:, 0])
     sample_indices[0] = np.argmax(samples[:, 0])
 
     return sample_indices, samples
@@ -331,25 +332,6 @@ def haploidForwardBackwardOriginal(pointEst, recombinationRate):
             est[j,i] = est[j,i]/sum_j
 
     return(est)
-
-
-# Not sure this file is the best place for this function
-@jit(int64[:](float32[:]), nopython=True, nogil=True)
-def multinomial_sample(pvals):
-    """Draw one sample from a multinomial distribution (similar to np.random.multinomial)"""
-
-    # random float in the half-open interval [0.0, np.sum(pvals))
-    rand = np.random.random() * np.sum(pvals)
-    # cumulative sum is same type as pvals (float32) so that the sum of pvals is always less than rand
-    cumsum = np.float32(0.0)
-    output = np.zeros_like(pvals, dtype=np.int64)
-    for i, p in enumerate(pvals):
-        cumsum += p
-        if rand < cumsum:
-            output[i] = 1
-            break
-
-    return output
 
 
 # targetHaplotype = np.array([0, 0, 9, 0, 9, 9, 1, 1], dtype = np.int8)
