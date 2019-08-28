@@ -1,4 +1,4 @@
-from numba import jit, int64, float32
+from numba import jit
 import numpy as np
 from . import ProbMath
 from . import NumbaUtils
@@ -174,26 +174,26 @@ def haploidOneSample(forward_probs, recombination_rate):
     n_haps, n_loci = forward_probs.shape
     prev = np.ones(n_haps, dtype=np.float32)
 
-    samples = np.empty(forward_probs.shape, dtype=np.int64)
+    sampled_probs = np.empty(forward_probs.shape, dtype=np.float32)
     sample_indices = np.empty(n_loci, dtype=np.int64)
 
-    # Backwards step
+    # Backwards algorithm
     for i in range(n_loci-2, -1, -1): # zero indexed then minus one since we skip the boundary
         # Sample at this locus
-        samples[:, i+1] = NumbaUtils.multinomial_sample(pvals=est[:, i+1])
-        sample_indices[i+1] = np.argmax(samples[:, i+1])
+        sampled_probs[:, i+1] = NumbaUtils.multinomial_sample(pvals=est[:, i+1])
+        sample_indices[i+1] = np.argmax(sampled_probs[:, i+1])
         
         # Get estimate at this locus using the *sampled* distribution (instead of the point estimates/emission probabilities)
-        haploidTransformProbs(prev, est[:, i], samples[:, i+1], recombination_rate[i+1])
+        haploidTransformProbs(prev, est[:, i], sampled_probs[:, i+1], recombination_rate[i+1])
         
         # Normalise at this locus (so that sampling can happen next time round the loop)
         est[:, i] = est[:, i] / np.sum(est[:, i])
     
     # Last sample (at the first locus)
-    samples[:, 0] = NumbaUtils.multinomial_sample(pvals=est[:, 0])
-    sample_indices[0] = np.argmax(samples[:, 0])
+    sampled_probs[:, 0] = NumbaUtils.multinomial_sample(pvals=est[:, 0])
+    sample_indices[0] = np.argmax(sampled_probs[:, 0])
 
-    return sample_indices, samples
+    return sample_indices, sampled_probs
 
 
 @jit(nopython=True)
