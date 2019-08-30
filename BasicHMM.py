@@ -165,7 +165,7 @@ def haploidOneSample(forward_probs, recombination_rate):
       sample_indices   array of indices of haplotypes in the haplotype library at each locus
                        e.g. an individual composed of haplotypes 13 and 42 with 8 loci: [42, 42, 42, 42, 42, 13, 13, 13]
 
-      samples          sampled probabilities (either 0 or 1) with shape (n_haps, n_loci)  - used to check
+      sampled_probs    sampled probabilities (either 0 or 1) with shape (n_haps, n_loci)  - used to check
                        that the average of many samples converges to the forward_backward probability distribution
 
     A description of the sampling process would be nice here..."""
