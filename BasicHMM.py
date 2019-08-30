@@ -224,7 +224,6 @@ def haploidForward(point_estimate, recombination_rate):
 
     n_haps, n_loci = point_estimate.shape
     est = point_estimate.copy()
-    new = np.empty(n_haps, dtype=np.float32)
     prev = np.ones(n_haps, dtype=np.float32)
 
     for i in range(1, n_loci):
@@ -241,7 +240,6 @@ def haploidBackward(point_estimate, recombination_rate):
    
     n_haps, n_loci = point_estimate.shape
     est = np.ones_like(point_estimate, dtype=np.float32)
-    new = np.empty(n_haps, dtype=np.float32)
     prev = np.ones(n_haps, dtype=np.float32)  
     
     for i in range(n_loci-2, -1, -1):  # zero indexed then minus one since we skip the boundary
