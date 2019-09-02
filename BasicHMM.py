@@ -739,6 +739,76 @@ def diploidForwardBackwardOrig(pointEst, recombinationRate) :
     return(est)
 
 
+def diploidSampleHaplotypes(forward_probs, recombination_rate, paternal_haplotypes, maternal_haplotypes):
+    """Sample a pair of paternal and maternal haplotypes from the forward and backward probability distributions 
+    and paternal and maternal haplotype libraries.
+    
+    Returns:
+      paternal_hap    sampled haplotype as array of alleles (0, 1), length 
+      maternal_hap    sampled haplotype as array of alleles (0, 1)
+    """
+
+    sampled_probs = diploidOneSample(forward_probs, recombination_rate)
+    paternal_indices, maternal_indices = diploidIndices(sampled_probs)
+    
+    paternal_hap = haplotypeFromHaplotypeIndices(paternal_indices, paternal_haplotypes)
+    maternal_hap = haplotypeFromHaplotypeIndices(maternal_indices, maternal_haplotypes)
+    
+    return paternal_hap, maternal_hap
+
+
+@jit(nopython=True)
+def diploidOneSample(forward_probs, recombination_rate):
+    """Sample a pair of paternal and maternal haplotypes from the forward and backward probability distributions
+    
+    Returns:
+      sampled_probs    sampled probabilities (exactly 0 or 1) with shape (# paternal haplotypes, # maternal haplotypes, # loci)
+
+    A description of the sampling process would be nice here..."""
+
+    est = forward_probs.copy()  # copy so that forward_probs is not modified
+    n_pat, n_mat, n_loci = forward_probs.shape
+    prev = np.full((n_pat, n_mat), 0.25, dtype=np.float32)
+    sampled_probs = np.empty(forward_probs.shape, dtype=np.float32)
+
+    # Backwards algorithm
+    for i in range(n_loci-2, -1, -1): # zero indexed then minus one since we skip the boundary
+        # Sample at this locus
+        sampled_probs[:, :, i+1] = NumbaUtils.multinomial_sample(pvals=est[:, :, i+1])
+
+        # Get estimate at this locus using the *sampled* distribution (instead of the point estimates/emission probabilities)
+        diploidTransformProbs(prev, est[:, :, i], sampled_probs[:, :, i+1], recombination_rate[i+1])
+
+        # Normalise at this locus (so that sampling can happen next time round the loop)
+        est[:, :, i] = est[:, :, i] / np.sum(est[:, :, i])
+
+    # Last sample (at the first locus)
+    sampled_probs[:, :, 0] = NumbaUtils.multinomial_sample(pvals=est[:, :, 0])
+
+    return sampled_probs
+
+
+@jit(nopython=True)
+def diploidIndices(sampled_probs):
+    """Get paternal and maternal indices from sampled probability distribution
+    Intended to be used with sampled probabilities as returned from diploidOneSample()"""
+    
+    n_pat, n_mat, n_loci = sampled_probs.shape
+    paternal_indices = np.empty(n_loci, dtype=np.int64)
+    maternal_indices = np.empty(n_loci, dtype=np.int64)
+    
+    eps = np.finfo(np.float32).eps
+    for i in range(n_loci):
+        for j in range(n_pat):
+            for k in range(n_mat):
+                # If sampled_probs[j, k, i] == 1
+                # set indices array to values j and k
+                if sampled_probs[j, k, i] > 1-eps: 
+                    paternal_indices[i] = j
+                    maternal_indices[i] = k
+                    
+    return paternal_indices, maternal_indices
+
 
 # def print3D(mat):
 #     nPat, nMat, nLoci = mat.shape
