@@ -15,7 +15,7 @@ class HaplotypeLibrary(object) :
         # self.randGen = jit_RandomBinary(1000) #Hard coding for now. 1000 seemed reasonable.
 
     def append(self, hap):
-        self.library.append(hap)
+        self.library.append(hap.copy())
         self.nHaps = len(self.library)
 
     def removeMissingValues(self):
