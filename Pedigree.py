@@ -217,6 +217,11 @@ class Pedigree(object):
         self.args = None
         self.writeOrderList = None
 
+
+    def __len__(self):
+        return len(self.individuals)
+
+
     def writeOrder(self):
         if self.writeOrderList is None:
             inds = [ind for ind in self if (not ind.dummy) and (self.args.writekey in ind.fileIndex)]
