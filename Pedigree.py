@@ -85,6 +85,9 @@ class Individual(object):
         self.generation = None
 
         self.initHD = False
+        # used in pythonHMM, but how should this best be coded when already have initHD? Should probably be set when data is read in,
+        # but need high_density_threshold to be set in the pedigree first
+        self.is_high_density = False
 
         self.genotypedFounderStatus = None #?
 
@@ -205,6 +208,9 @@ class Pedigree(object):
 
         self.maf=None #Maf is the frequency of 2s.
 
+        # Threshold that determines if an individual is high-density genotyped
+        self.high_density_threshold = 0.9
+
         if fileName is not None:
             self.readInPedigree(fileName)
 
@@ -226,7 +232,11 @@ class Pedigree(object):
         for ind in self.writeOrderList :
             yield (ind.idx, ind)
 
-    def setMaf(self) :
+    def setMaf(self):
+        """Calculate minor allele frequencies at each locus"""
+
+        # The default values of 1 (maf) and 2 (counts) provide a sensible prior
+        # For example, a locus where all individuals are missing, the MAF will be 0.5
         maf = np.full(self.nLoci, 1, dtype = np.float32)
         counts = np.full(self.nLoci, 2, dtype = np.float32)
         for ind in self.individuals.values():
@@ -244,6 +254,15 @@ class Pedigree(object):
                 counts += 1
                 addIfMissing(missingness, ind.genotypes)
         return missingness/counts
+
+
+    def set_high_density(self):
+        """Set whether each individual is high-density"""
+        for individual in self:#.individuals.values():
+            is_high_density = np.mean(individual.genotypes != 9) >= self.high_density_threshold
+            if is_high_density:
+                individual.is_high_density = True
+
 
     def fillIn(self, genotypes = True, haps = False, reads = False):
 
