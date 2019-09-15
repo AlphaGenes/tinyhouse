@@ -3,15 +3,87 @@ import random
 import numpy as np
 import numba
 from numba import njit, jit, int8, int32,int64, boolean, deferred_type, optional, jitclass, float32
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
-def profile(x): 
+def profile(x):
     return x
+
+class HaplotypeLibrary2(object):
+    """A library of haplotypes
+    Each haplotype can have an identifier (any Python object, but typically a str or int)
+    The identifiers are used to select haplotypes for updating or masking
+    Haplotypes are stored as a NumPy array of dtype np.int8
+
+    The append() method is slow as it creates a new array in memory each time
+    An alternative would be to pre-allocate the array for a fixed-size library"""
+
+    def __init__(self, n_loci):
+        self._n_loci = n_loci
+        self._haplotypes = np.empty((0, n_loci), dtype=np.int8)
+        # index to identifier mapping
+        self._identifiers = np.empty((0,), dtype=object)
+
+    def __repr__(self):
+        return repr(self._identifiers) + '\n' + repr(self._haplotypes)
+
+    def __len__(self):
+        """Number of haplotypes in the library"""
+        return len(self._haplotypes)
+
+    def append(self, haplotype, identifier=None):
+        """Append a single haplotype to the library"""
+        self._check_haplotype(haplotype, expected_shape=(self._n_loci,))
+        self._identifiers = np.hstack([self._identifiers, identifier])
+        self._haplotypes = np.vstack([self._haplotypes, haplotype])
+
+    def update_pair(self, paternal_haplotype, maternal_haplotype, identifier):
+        """Update a pair of haplotypes"""
+        self._check_identifier_exists(identifier)
+        self._check_haplotype(paternal_haplotype, expected_shape=(self._n_loci,))
+        self._check_haplotype(maternal_haplotype, expected_shape=(self._n_loci,))
+        indices = self._indices(identifier)
+        if len(indices) != 2:
+            raise ValueError(f"Indentifer '{identifier}' does not have exactly two haplotypes in the library")
+        self._haplotypes[indices] = np.vstack([paternal_haplotype, maternal_haplotype])
+
+    def sample(self, n_haplotypes):
+        """Return a randomly sampled HaplotypeLibrary() of n_haplotypes"""
+        if n_haplotypes > len(self):
+            n_haplotypes = len(self)
+        sampled_indices = np.sort(np.random.choice(len(self), size=n_haplotypes, replace=False))
+        library = HaplotypeLibrary2(self._n_loci)
+        library._haplotypes = self._haplotypes[sampled_indices]
+        library._identifiers = self._identifiers[sampled_indices]
+        return library
+
+    def masked(self, identifier):
+        """Returns a copy of all haplotypes *not* associated with an identifier
+	(The copy is due the use of fancy indexing)
+        If identifier is not in the library, then all haplotypes are returned"""
+        mask = set(range(len(self))) - set(self._indices(identifier))
+        return self._haplotypes[list(mask)]
+
+    def _indices(self, identifier):
+        """Get rows indices associated with an identifier. These can be used for fancy indexing"""
+        return  np.flatnonzero(self._identifiers == identifier).tolist()
+
+    def _check_haplotype(self, haplotype, expected_shape):
+        """Check haplotype has expected shape and dtype.
+        Could extend to check values in {0,1,9}"""
+        if haplotype.shape != expected_shape:
+            raise ValueError('haplotype(s) has unexpected shape')
+        if haplotype.dtype != np.int8:
+            raise TypeError('haplotype(s) not dtype np.int8')
+
+    def _check_identifier_exists(self, identifier):
+        if identifier not in self._identifiers:
+            raise KeyError(f"Identifier '{identifier}' not in library")
+
 
 class HaplotypeLibrary(object) :
     def __init__(self) :
         self.library = []
-        self.nHaps = 0
+        self.nHaps = 0     # better to use __len__()
         # self.randGen = jit_RandomBinary(1000) #Hard coding for now. 1000 seemed reasonable.
 
     def append(self, hap):
@@ -23,6 +95,9 @@ class HaplotypeLibrary(object) :
             removeMissingValues(hap)
     def asMatrix(self):
         return np.array(self.library)
+    
+    def __len__(self):
+        return len(self.library)
 
 @njit
 def removeMissingValues(hap):
