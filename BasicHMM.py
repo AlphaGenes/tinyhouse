@@ -739,22 +739,24 @@ def diploidForwardBackwardOrig(pointEst, recombinationRate) :
     return(est)
 
 
+@jit(nopython=True)
 def diploidSampleHaplotypes(forward_probs, recombination_rate, paternal_haplotypes, maternal_haplotypes):
     """Sample a pair of paternal and maternal haplotypes from the forward and backward probability distributions 
     and paternal and maternal haplotype libraries.
-    
     Returns:
-      paternal_hap    sampled haplotype as array of alleles (0, 1), length 
-      maternal_hap    sampled haplotype as array of alleles (0, 1)
+      haplotypes      Pair of haplotypes as a 2D array of shape (2, n_loci)
     """
+
+    n_loci = forward_probs.shape[2]
+    haplotypes = np.full((2,n_loci), 9, dtype=np.int8)
 
     sampled_probs = diploidOneSample(forward_probs, recombination_rate)
     paternal_indices, maternal_indices = diploidIndices(sampled_probs)
     
-    paternal_hap = haplotypeFromHaplotypeIndices(paternal_indices, paternal_haplotypes)
-    maternal_hap = haplotypeFromHaplotypeIndices(maternal_indices, maternal_haplotypes)
+    haplotypes[0] = haplotypeFromHaplotypeIndices(paternal_indices, paternal_haplotypes)
+    haplotypes[1] = haplotypeFromHaplotypeIndices(maternal_indices, maternal_haplotypes)
     
-    return paternal_hap, maternal_hap
+    return haplotypes
 
 
 @jit(nopython=True)
