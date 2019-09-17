@@ -9,7 +9,7 @@ def multinomial_sample(pvals):
     return  - 1D or 2D array (np.float32) of same length as pvals with one value set to 1. and all others 0.
               this can then be used as an array of probabilities
     Note: the implementation will work with a pvals array of any dimension, but the function signature
-    limits it to 1D or 1D"""
+    limits it to 1D or 2D"""
 
     # Random float in the half-open interval [0.0, np.sum(pvals))
     rand = np.random.random() * np.sum(pvals)
