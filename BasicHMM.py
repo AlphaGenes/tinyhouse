@@ -765,6 +765,7 @@ def diploidOneSample(forward_probs, recombination_rate):
     
     Returns:
       sampled_probs    sampled probabilities (exactly 0 or 1) with shape (# paternal haplotypes, # maternal haplotypes, # loci)
+      Note: this can be a large array - less wasteful to return indices
 
     A description of the sampling process would be nice here..."""
 
