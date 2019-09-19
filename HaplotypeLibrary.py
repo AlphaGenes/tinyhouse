@@ -58,10 +58,10 @@ class HaplotypeLibrary2(object):
 
     def masked(self, identifier):
         """Returns a copy of all haplotypes *not* associated with an identifier
-	(The copy is due the use of fancy indexing)
+        (The copy is due the use of fancy indexing)
         If identifier is not in the library, then all haplotypes are returned"""
-        mask = set(range(len(self))) - set(self._indices(identifier))
-        return self._haplotypes[list(mask)]
+        mask = (self._identifiers != identifier)
+        return self._haplotypes[mask]
 
     def _indices(self, identifier):
         """Get rows indices associated with an identifier. These can be used for fancy indexing"""
