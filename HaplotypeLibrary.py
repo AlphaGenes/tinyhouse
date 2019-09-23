@@ -8,20 +8,25 @@ from collections import OrderedDict, defaultdict
 def profile(x):
     return x
 
-class HaplotypeLibrary2(object):
+class HaplotypeLibrary(object):
     """A library of haplotypes
     Each haplotype can have an identifier (any Python object, but typically a str or int)
     The identifiers are used to select haplotypes for updating or masking
-    Haplotypes are stored as a NumPy array of dtype np.int8
+    Haplotypes should be NumPy arrays of dtype np.int8
 
-    The append() method is slow as it creates a new array in memory each time
-    An alternative would be to pre-allocate the array for a fixed-size library"""
+    Some functions only work on frozen libraries; some only on unfrozen ones. 
+    Use freeze() and unfreeze() to swap between the two states. Typically a library is 
+    built with append() and then frozen to enable additional functionality (sample(), masked(), etc.)"""
 
+    # NOTES: 
+    # Change to HaplotypeLibrary <= no 2
+    
+    
     def __init__(self, n_loci):
         self._n_loci = n_loci
-        self._haplotypes = np.empty((0, n_loci), dtype=np.int8)
-        # index to identifier mapping
-        self._identifiers = np.empty((0,), dtype=object)
+        self._frozen = False
+        self._haplotypes = []
+        self._identifiers = []  # index to identifier mapping
 
     def __repr__(self):
         return repr(self._identifiers) + '\n' + repr(self._haplotypes)
@@ -31,13 +36,34 @@ class HaplotypeLibrary2(object):
         return len(self._haplotypes)
 
     def append(self, haplotype, identifier=None):
-        """Append a single haplotype to the library"""
+        """Append a single haplotype to the library. 
+        Note: a copy of the haplotype is taken"""
+        if self._frozen:
+            raise RuntimeError('Cannot append to frozen library')
         self._check_haplotype(haplotype, expected_shape=(self._n_loci,))
-        self._identifiers = np.hstack([self._identifiers, identifier])
-        self._haplotypes = np.vstack([self._haplotypes, haplotype])
+        self._identifiers.append(identifier)
+        self._haplotypes.append(haplotype.copy())
+        
+    def freeze(self):
+        """Freeze the library: convert identifier and haplotype lists to NumPy arrays"""
+        if self._frozen:
+            raise RuntimeError('Cannot freeze an already frozen library')
+        self._haplotypes = np.array(self._haplotypes)
+        self._identifiers = np.array(self._identifiers)
+        self._frozen = True
 
+    def unfreeze(self):
+        """Unfreeze the library: convert identifiers and haplotypes to lists"""
+        if not self._frozen:
+            raise RuntimeError('Cannot unfreeze an unfrozen library')
+        self._haplotypes = list(self._haplotypes)
+        self._identifiers = list(self._identifiers)
+        self._frozen = False
+        
     def update_pair(self, paternal_haplotype, maternal_haplotype, identifier):
         """Update a pair of haplotypes"""
+        if not self._frozen:
+            raise RuntimeError('Cannot update an unfrozen library')
         self._check_identifier_exists(identifier)
         self._check_haplotype(paternal_haplotype, expected_shape=(self._n_loci,))
         self._check_haplotype(maternal_haplotype, expected_shape=(self._n_loci,))
@@ -48,10 +74,13 @@ class HaplotypeLibrary2(object):
 
     def sample(self, n_haplotypes):
         """Return a randomly sampled HaplotypeLibrary() of n_haplotypes"""
+        if not self._frozen:
+            raise RuntimeError('Cannot sample an unfrozen library')
         if n_haplotypes > len(self):
             n_haplotypes = len(self)
         sampled_indices = np.sort(np.random.choice(len(self), size=n_haplotypes, replace=False))
-        library = HaplotypeLibrary2(self._n_loci)
+        library = HaplotypeLibrary(self._n_loci)
+        library._frozen = True
         library._haplotypes = self._haplotypes[sampled_indices]
         library._identifiers = self._identifiers[sampled_indices]
         return library
@@ -60,11 +89,26 @@ class HaplotypeLibrary2(object):
         """Returns a copy of all haplotypes *not* associated with an identifier
         (The copy is due the use of fancy indexing)
         If identifier is not in the library, then all haplotypes are returned"""
+        if not self._frozen:
+            raise RuntimeError('Cannot mask an unfrozen library')
         mask = (self._identifiers != identifier)
         return self._haplotypes[mask]
 
+    def asMatrix(self):
+        """Return the NumPy array - kept for backwards compatibility"""
+        if self._frozen:
+            return self._haplotypes.copy()
+        return np.array(self._haplotypes)
+    
+    def removeMissingValues(self):
+        """Replace missing values randomly with 0 or 1 with 50 % probability - kept for backwards compatibility"""
+        for hap in self._haplotypes:
+            removeMissingValues(hap)
+    
     def _indices(self, identifier):
         """Get rows indices associated with an identifier. These can be used for fancy indexing"""
+        if not self._frozen:
+            raise RuntimeError('Cannot run _indices() on an unfrozen library')
         return  np.flatnonzero(self._identifiers == identifier).tolist()
 
     def _check_haplotype(self, haplotype, expected_shape):
@@ -78,27 +122,8 @@ class HaplotypeLibrary2(object):
     def _check_identifier_exists(self, identifier):
         if identifier not in self._identifiers:
             raise KeyError(f"Identifier '{identifier}' not in library")
-
-
-class HaplotypeLibrary(object) :
-    def __init__(self) :
-        self.library = []
-        self.nHaps = 0     # better to use __len__()
-        # self.randGen = jit_RandomBinary(1000) #Hard coding for now. 1000 seemed reasonable.
-
-    def append(self, hap):
-        self.library.append(hap.copy())
-        self.nHaps = len(self.library)
-
-    def removeMissingValues(self):
-        for hap in self.library:
-            removeMissingValues(hap)
-    def asMatrix(self):
-        return np.array(self.library)
-    
-    def __len__(self):
-        return len(self.library)
-
+            
+            
 @njit
 def removeMissingValues(hap):
     for i in range(len(hap)) :
