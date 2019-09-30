@@ -410,7 +410,7 @@ def getDiploidDosages(hapEst, paternalHaplotypes, maternalHaplotypes):
     for i in range(nLoci):
         for j in range(nPat):
             for k in range(nMat):
-                dosages[i] += hapEst[j,k,i]*(paternalHaplotypes[j,i] + maternalHaplotypes[k,i])
+                dosages[i] += hapEst[i,j,k]*(paternalHaplotypes[j,i] + maternalHaplotypes[k,i])
     return dosages
 
 @jit(nopython=True)
@@ -439,7 +439,7 @@ def getDiploidPointEstimates(indGeno, indPatHap, indMatHap, paternalHaplotypes, 
     nPat, nLoci = paternalHaplotypes.shape
     nMat, nLoci = maternalHaplotypes.shape
 
-    pointEst = np.full((nPat, nMat, nLoci), 1, dtype = np.float32)
+    pointEst = np.full((nLoci, nPat, nMat), 1, dtype = np.float32)
     for i in range(nLoci):
         if indGeno[i] != 9:
             for j in range(nPat):
@@ -455,14 +455,33 @@ def getDiploidPointEstimates(indGeno, indPatHap, indMatHap, paternalHaplotypes, 
                             value *= (1-error[i])
                         else:
                             value *= error[i]
-                        pointEst[j,k,i] = value
+                        pointEst[i,j,k] = value
                     else:
                         #I think this shouldn't be too horrible.
                         sourceGeno = paternalHaplotypes[j, i] + maternalHaplotypes[k,i]
                         if sourceGeno == indGeno[i]:
-                            pointEst[j,k, i] = 1-error[i]*error[i]
+                            pointEst[i,j,k,] = 1-error[i]*error[i]
                         else:
-                            pointEst[j,k,i] = error[i]*error[i]
+                            pointEst[i,j,k] = error[i]*error[i]
+    return pointEst
+
+@jit(nopython=True)
+def getDiploidPointEstimates_geno(indGeno, paternalHaplotypes, maternalHaplotypes, error, pointEst):
+    nPat, nLoci = paternalHaplotypes.shape
+    nMat, nLoci = maternalHaplotypes.shape
+
+    for i in range(nLoci):
+        if indGeno[i] != 9:
+            error_2 = error[i]*error[i]
+            for j in range(nPat):
+                for k in range(nMat):
+
+                    #I think this shouldn't be too horrible.
+                    sourceGeno = paternalHaplotypes[j, i] + maternalHaplotypes[k,i]
+                    if sourceGeno == indGeno[i]:
+                        pointEst[i,j,k,] = 1-error_2
+                    else:
+                        pointEst[i,j,k] = error_2
     return pointEst
 
 @jit(nopython=True)
@@ -521,7 +540,7 @@ def diploid_normalize(array):
 
 
 @jit(nopython=True)
-def diploidTransformProbs(previous, estimate, point_estimate, recombination_rate):
+def diploidTransformProbs(previous, estimate, point_estimate, recombination_rate, new, pat, mat):
     """Transforms a probability distribution (over pairs of paternal and maternal haplotypes, at a single locus)
     to a probability distribution at the next locus by accounting for emission probabilities (point_estimates)
     and transition probabilities (recombination_rate)
@@ -539,36 +558,43 @@ def diploidTransformProbs(previous, estimate, point_estimate, recombination_rate
     Note: previous and estimate are updated by this function"""
 
     n_pat, n_mat = point_estimate.shape
-    new = np.empty_like(point_estimate, dtype=np.float32)
-    pat = np.zeros(n_pat, dtype=np.float32)
-    mat = np.zeros(n_mat, dtype=np.float32)
 
     # Get estimate at this locus and normalize
-    for j in range(n_pat):
-        for k in range(n_mat):
-            new[j, k] = previous[j, k]*point_estimate[j, k]
-    sum_ = np.float64(0)
-    for j in range(n_pat):
-        for k in range(n_mat):
-            sum_ += new[j, k]
-    for j in range(n_pat):
-        for k in range(n_mat):
-            new[j, k] = new[j, k]/sum_
+    # for j in range(n_pat):
+    #     for k in range(n_mat):
+    #         new[j, k] = previous[j, k]*point_estimate[j, k]
+    new[:,:] = previous*point_estimate
+    new /= np.sum(new)
+    # sum_ = np.float64(0)
+    # for j in range(n_pat):
+    #     for k in range(n_mat):
+    #         sum_ += new[j, k]
+    # for j in range(n_pat):
+    #     for k in range(n_mat):
+    #         new[j, k] = new[j, k]/sum_
 
     # Get haplotype specific recombinations
+    pat[:] = 0
+    mat[:] = 0
     for j in range(n_pat):
         for k in range(n_mat):
             pat[j] += new[j, k]
             mat[k] += new[j, k]
-
-    # Account for recombination rate
+    
     e = recombination_rate
     e1e = (1-e)*e
-    e2 = e*e
     e2m1 = (1-e)**2
+
+    # Adding modifications to pat and mat to take into account number of haplotypes and recombination rate.
+    pat *= e1e/n_pat
+    mat *= e1e/n_mat
+
+    e2 = e*e/(n_mat*n_pat)
+
+    # Account for recombination rate
     for j in range(n_pat):
         for k in range(n_mat):
-            new[j, k] = new[j, k]*e2m1 + e1e*pat[j]/n_pat + e1e*mat[k]/n_mat + e2/(n_mat*n_pat)
+            new[j, k] = new[j, k]*e2m1 + pat[j] + mat[k] + e2
 
     # Update distributions (in place)
     for j in range(n_pat):
@@ -581,15 +607,20 @@ def diploidTransformProbs(previous, estimate, point_estimate, recombination_rate
 def diploidForward(point_estimate, recombination_rate):
     """Calculate forward probabilities"""
 
-    n_pat, n_mat, n_loci = point_estimate.shape
+    n_loci, n_pat, n_mat = point_estimate.shape
     est = point_estimate.copy()  # copy so that point_estimate is not modified
     prev = np.full((n_pat, n_mat), 0.25, dtype=np.float32)
 
+    new = np.empty((n_pat, n_mat), dtype=np.float32)
+    pat = np.empty(n_pat, dtype=np.float32)
+    mat = np.empty(n_mat, dtype=np.float32)
+
+
     for i in range(1, n_loci):
         # Update estimates at this locus
-        diploidTransformProbs(prev, est[:, :, i], point_estimate[:, :, i-1], recombination_rate[i])
+        diploidTransformProbs(prev, est[i, :, :], point_estimate[i-1, :, :], recombination_rate[i], new, pat, mat)
 
-    diploid_normalize(est)
+    # diploidForward_normalize(est)
     return est
 
 
@@ -597,15 +628,19 @@ def diploidForward(point_estimate, recombination_rate):
 def diploidBackward(point_estimate, recombination_rate):
     """Calculate backward probabilities"""
 
-    n_pat, n_mat, n_loci = point_estimate.shape
+    n_loci, n_pat, n_mat = point_estimate.shape
     est = np.ones_like(point_estimate, dtype=np.float32)
     prev = np.full((n_pat, n_mat), 0.25, dtype=np.float32)
+  
+    new = np.empty((n_pat, n_mat), dtype=np.float32)
+    pat = np.empty(n_pat, dtype=np.float32)
+    mat = np.empty(n_mat, dtype=np.float32)
 
     for i in range(n_loci-2, -1, -1): # zero indexed then minus one since we skip the boundary
         # Update estimates at this locus
-        diploidTransformProbs(prev, est[:, :, i], point_estimate[:, :, i+1], recombination_rate[i+1])
+        diploidTransformProbs(prev, est[i, :, :], point_estimate[i+1, :, :], recombination_rate[i+1], new, pat, mat)
 
-    diploid_normalize(est)
+    # diploid_normalize(est)
     return est
 
 
@@ -616,7 +651,12 @@ def diploidForwardBackward(point_estimate, recombination_rate):
     est = diploidForward(point_estimate, recombination_rate) * diploidBackward(point_estimate, recombination_rate)
 
     # Return normalized probabilities
-    diploid_normalize(est)
+    # diploid_normalize(est)
+ 
+    n_loci = est.shape[0]
+    for i in range(n_loci):
+        est[i,:,:]/=np.sum(est[i, :, :])
+
     return est
 
 
@@ -747,8 +787,8 @@ def diploidSampleHaplotypes(forward_probs, recombination_rate, paternal_haplotyp
       haplotypes      Pair of haplotypes as a 2D array of shape (2, n_loci)
     """
 
-    n_loci = forward_probs.shape[2]
-    haplotypes = np.full((2,n_loci), 9, dtype=np.int8)
+    n_loci = forward_probs.shape[0]
+    haplotypes = np.full((2, n_loci), 9, dtype=np.int8)
 
     sampled_probs = diploidOneSample(forward_probs, recombination_rate)
     paternal_indices, maternal_indices = diploidIndices(sampled_probs)
@@ -770,23 +810,28 @@ def diploidOneSample(forward_probs, recombination_rate):
     A description of the sampling process would be nice here..."""
 
     est = forward_probs.copy()  # copy so that forward_probs is not modified
-    n_pat, n_mat, n_loci = forward_probs.shape
+    n_loci , n_pat, n_mat= forward_probs.shape
     prev = np.full((n_pat, n_mat), 0.25, dtype=np.float32)
     sampled_probs = np.empty(forward_probs.shape, dtype=np.float32)
+
+    new = np.zeros((n_pat, n_mat), dtype=np.float32)
+    pat = np.zeros(n_pat, dtype=np.float32)
+    mat = np.zeros(n_mat, dtype=np.float32)
+
 
     # Backwards algorithm
     for i in range(n_loci-2, -1, -1): # zero indexed then minus one since we skip the boundary
         # Sample at this locus
-        sampled_probs[:, :, i+1] = NumbaUtils.multinomial_sample(pvals=est[:, :, i+1])
+        sampled_probs[i+1, :, :] = NumbaUtils.multinomial_sample(pvals=est[i+1, :, :])
 
         # Get estimate at this locus using the *sampled* distribution (instead of the point estimates/emission probabilities)
-        diploidTransformProbs(prev, est[:, :, i], sampled_probs[:, :, i+1], recombination_rate[i+1])
+        diploidTransformProbs(prev, est[i, :, :], sampled_probs[i+1, :, :], recombination_rate[i+1], new, pat, mat)
 
         # Normalise at this locus (so that sampling can happen next time round the loop)
-        est[:, :, i] = est[:, :, i] / np.sum(est[:, :, i])
+        est[i, :, :] /= np.sum(est[i, :, :])
 
     # Last sample (at the first locus)
-    sampled_probs[:, :, 0] = NumbaUtils.multinomial_sample(pvals=est[:, :, 0])
+    sampled_probs[0, :, :] = NumbaUtils.multinomial_sample(pvals=est[0, :, :])
 
     return sampled_probs
 
@@ -796,7 +841,7 @@ def diploidIndices(sampled_probs):
     """Get paternal and maternal indices from sampled probability distribution
     Intended to be used with sampled probabilities as returned from diploidOneSample()"""
     
-    n_pat, n_mat, n_loci = sampled_probs.shape
+    n_loci, n_pat, n_mat = sampled_probs.shape
     paternal_indices = np.empty(n_loci, dtype=np.int64)
     maternal_indices = np.empty(n_loci, dtype=np.int64)
     
@@ -806,7 +851,7 @@ def diploidIndices(sampled_probs):
             for k in range(n_mat):
                 # If sampled_probs[j, k, i] == 1
                 # set indices array to values j and k
-                if sampled_probs[j, k, i] > 1-eps: 
+                if sampled_probs[i, j, k] > 1-eps: 
                     paternal_indices[i] = j
                     maternal_indices[i] = k
                     
