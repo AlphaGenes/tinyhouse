@@ -786,13 +786,9 @@ def diploidSampleHaplotypes(forward_probs, recombination_rate, paternal_haplotyp
     Returns:
       haplotypes      Pair of haplotypes as a 2D array of shape (2, n_loci)
     """
-
     n_loci = forward_probs.shape[0]
     haplotypes = np.full((2, n_loci), 9, dtype=np.int8)
-
-    sampled_probs = diploidOneSample(forward_probs, recombination_rate)
-    paternal_indices, maternal_indices = diploidIndices(sampled_probs)
-    
+    paternal_indices, maternal_indices = diploidOneSample(forward_probs, recombination_rate)
     haplotypes[0] = haplotypeFromHaplotypeIndices(paternal_indices, paternal_haplotypes)
     haplotypes[1] = haplotypeFromHaplotypeIndices(maternal_indices, maternal_haplotypes)
     
@@ -802,38 +798,40 @@ def diploidSampleHaplotypes(forward_probs, recombination_rate, paternal_haplotyp
 @jit(nopython=True)
 def diploidOneSample(forward_probs, recombination_rate):
     """Sample a pair of paternal and maternal haplotypes from the forward and backward probability distributions
-    
     Returns:
-      sampled_probs    sampled probabilities (exactly 0 or 1) with shape (# paternal haplotypes, # maternal haplotypes, # loci)
-      Note: this can be a large array - less wasteful to return indices
-
+      paternal_indices, maternal_indices - arrays of sampled haplotype indices 
+      
     A description of the sampling process would be nice here..."""
-
     est = forward_probs.copy()  # copy so that forward_probs is not modified
     n_loci , n_pat, n_mat= forward_probs.shape
     prev = np.full((n_pat, n_mat), 0.25, dtype=np.float32)
-    sampled_probs = np.empty(forward_probs.shape, dtype=np.float32)
-
     new = np.zeros((n_pat, n_mat), dtype=np.float32)
     pat = np.zeros(n_pat, dtype=np.float32)
     mat = np.zeros(n_mat, dtype=np.float32)
 
-
+    sampled_probs = np.empty((n_pat, n_mat), dtype=np.float32)  # sampled probability distribution at one locus
+    paternal_indices = np.empty(n_loci, dtype=np.int64)
+    maternal_indices = np.empty(n_loci, dtype=np.int64)
+    
     # Backwards algorithm
     for i in range(n_loci-2, -1, -1): # zero indexed then minus one since we skip the boundary
         # Sample at this locus
-        sampled_probs[i+1, :, :] = NumbaUtils.multinomial_sample(pvals=est[i+1, :, :])
+        j, k = NumbaUtils.multinomial_sample_2d(pvals=est[i+1, :, :]) 
+        sampled_probs[:,:] = 0
+        sampled_probs[j, k] = 1
+        paternal_indices[i+1] = j
+        maternal_indices[i+1] = k
 
         # Get estimate at this locus using the *sampled* distribution (instead of the point estimates/emission probabilities)
-        diploidTransformProbs(prev, est[i, :, :], sampled_probs[i+1, :, :], recombination_rate[i+1], new, pat, mat)
-
-        # Normalise at this locus (so that sampling can happen next time round the loop)
-        est[i, :, :] /= np.sum(est[i, :, :])
+        diploidTransformProbs(prev, est[i, :, :], sampled_probs, recombination_rate[i+1], new, pat, mat)
+        # No need to normalise at this locus as multinomial_sample_2d copes with un-normalized probabilities
 
     # Last sample (at the first locus)
-    sampled_probs[0, :, :] = NumbaUtils.multinomial_sample(pvals=est[0, :, :])
+    j, k = NumbaUtils.multinomial_sample_2d(pvals=est[i+1, :, :]) 
+    paternal_indices[0] = j
+    maternal_indices[0] = k
 
-    return sampled_probs
+    return paternal_indices, maternal_indices
 
 
 @jit(nopython=True)
