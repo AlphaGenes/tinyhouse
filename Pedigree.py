@@ -91,6 +91,21 @@ class Individual(object):
 
         self.genotypedFounderStatus = None #?
 
+    def subset(self, start, stop):
+        # Take an individual and create an individual that just contains information on those markers.
+        # It's okay if this wipes other information.
+
+        new_ind = Individual(self.idx, self.idn)
+        if self.genotypes is not None:
+            new_ind.genotypes = self.genotypes[start:stop].copy() # Maybe could get away with not doing copies... doing them just to be safe.
+
+        if self.haplotypes is not None:
+            new_ind.haplotypes = (self.haplotypes[0][start:stop].copy(), self.haplotypes[1][start:stop].copy())
+
+        if self.reads is not None:
+            new_ind.reads = (self.reads[0][start:stop].copy(), self.reads[1][start:stop].copy())
+        return new_ind
+
     def __hash__(self):
         return self.idn
 
@@ -217,6 +232,58 @@ class Pedigree(object):
         self.args = None
         self.writeOrderList = None
 
+    def subset(self, start, stop):
+        new_pedigree = Pedigree(constructor = self.constructor)
+        new_pedigree.nLoci = stop - start
+        # Add all of the individuals.
+
+        for ind in self:
+            # Note: ind.subset strips away all of the family information.
+            new_pedigree[ind.idx] = ind.subset(start, stop)
+
+        for ind in self:
+            if ind.sire is not None:
+                new_ind = new_pedigree[ind.idx]
+                new_sire = new_pedigree[ind.sire.idx]
+
+
+                # Add individuals
+                new_ind.sire = new_sire
+                new_sire.offspring.append(new_ind)
+
+            if ind.dam is not None:
+                new_ind = new_pedigree[ind.idx]
+                new_dam = new_pedigree[ind.dam.idx]
+
+                # Add individuals
+                new_ind.dam = new_dam
+                new_dam.offspring.append(new_ind)
+        return new_pedigree
+
+    def merge(self, new_pedigree, start, stop):
+        # This just merged genotype, haplotype, and dosage information (if availible).
+        
+        for ind in self:
+            new_ind = new_pedigree[ind.idx]
+            if new_ind.genotypes is not None:
+                if ind.genotypes is None:
+                    ind.genotypes = np.full(self.nLoci, 9, dtype = np.int8)
+                ind.genotypes[start:stop] = new_ind.genotypes
+            
+            if new_ind.dosages is not None:
+                if ind.dosages is None:
+                    ind.dosages = np.full(self.nLoci, -1, dtype = np.float32)
+
+                ind.dosages[start:stop] = new_ind.dosages
+            
+            if new_ind.haplotypes is not None:
+                if ind.haplotypes is None:
+                    ind.haplotypes = (np.full(self.nLoci, 9, dtype = np.int8), np.full(self.nLoci, 9, dtype = np.int8))
+
+                ind.haplotypes[0][start:stop] = new_ind.haplotypes[0]
+                ind.haplotypes[1][start:stop] = new_ind.haplotypes[1]
+
+
 
     def __len__(self):
         return len(self.individuals)
@@ -274,6 +341,12 @@ class Pedigree(object):
         for individual in self:
             individual.constructInfo(self.nLoci, genotypes = True, haps = haps, reads = reads)
 
+
+    def __getitem__(self, key) :
+        return self.individuals[key]
+
+    def __setitem__(self, key, value):
+        self.individuals[key] = value
 
     def __iter__(self) :
         if self.generations is None:
@@ -636,14 +709,26 @@ class Pedigree(object):
 
 
     def writeDosages(self, outputFile):
-        with open(outputFile, 'w+') as f:
-            for idx, ind in self.individuals.items():
-                if ind.dosages is not None:
-                    dosages = ind.dosages
-                else: 
-                    dosages = ind.genotypes.copy()
-                    dosages[dosages == 9] = 1
-                self.writeLine(f, ind.idx, dosages, "{:.4f}".format)
+        data_list = []
+        for ind in self :
+            if ind.dosages is not None:
+                data_list.append( (ind.idx, ind.dosages) )
+            else:
+                dosages = ind.genotypes.copy()
+                dosages[dosages == 9] = 1
+                data_list.append( (ind.idx, dosages) )
+
+
+        MultiThreadIO.writeLines(outputFile, data_list, "{:.4f}".format)
+
+        # with open(outputFile, 'w+') as f:
+        #     for idx, ind in self.individuals.items():
+        #         if ind.dosages is not None:
+        #             dosages = ind.dosages
+        #         else: 
+        #             dosages = ind.genotypes.copy()
+        #             dosages[dosages == 9] = 1
+        #         self.writeLine(f, ind.idx, dosages, "{:.4f}".format)
 
 
     def writeGenotypes_prefil(self, outputFile):

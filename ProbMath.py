@@ -12,7 +12,7 @@ def getGenotypesFromMaf(maf) :
 
     return mafGenotypes
 
-def getGenotypeProbabilities_ind(ind, args = None):
+def getGenotypeProbabilities_ind(ind, args = None, log = False):
     if args is None:
         error = 0.01
         seqError = 0.001
@@ -26,7 +26,10 @@ def getGenotypeProbabilities_ind(ind, args = None):
         nLoci = len(ind.reads[0])
     if ind.genotypes is not None:
         nLoci = len(ind.genotypes)
-    return getGenotypeProbabilities(nLoci, ind.genotypes, ind.reads, error, seqError, sexChromFlag)
+    if not log:
+        return getGenotypeProbabilities(nLoci, ind.genotypes, ind.reads, error, seqError, sexChromFlag)
+    else:
+        return getGenotypeProbabilities_log(nLoci, ind.genotypes, ind.reads, error, seqError, sexChromFlag)
 
 
 def getGenotypeProbabilities(nLoci, genotypes, reads, error = 0.01, seqError = 0.001, useSexChrom=False):
@@ -63,6 +66,100 @@ def getGenotypeProbabilities(nLoci, genotypes, reads, error = 0.01, seqError = 0
 
     return vals/np.sum(vals,0)
 
+
+def getGenotypeProbabilities_log(nLoci, genotypes, reads, error = 0.01, seqError = 0.001, useSexChrom=False):
+    vals = np.full((4, nLoci), .25, dtype = np.float32)
+    if type(error) is float:
+        error = np.full(nLoci, error)
+    if type(seqError) is float:
+        seqError = np.full(nLoci, seqError)
+
+    errorMat = generateErrorMat(error)
+
+    if genotypes is not None:
+        setGenoProbsFromGenotypes(genotypes, errorMat, vals)
+    
+    vals = np.log(vals)
+
+    if reads is not None:
+        log1 = np.log(1-seqError)
+        log2 = np.log(.5)
+        loge = np.log(seqError)
+
+        ref_reads = reads[0]
+        alt_reads = reads[1]
+
+        val_seq = np.full((4, nLoci), 0, dtype = np.float32)
+        val_seq[0,:] = log1*ref_reads + loge*alt_reads
+        val_seq[1,:] = log2*ref_reads + log2*alt_reads
+        val_seq[2,:] = log2*ref_reads + log2*alt_reads
+        val_seq[3,:] = loge*ref_reads + log1*alt_reads
+
+        vals += val_seq
+
+    output = np.full((4, nLoci), 0, dtype = np.float32)
+    apply_log_norm_1d(vals, output)
+    return output
+
+@jit(nopython=True, nogil = True)
+def apply_log_norm_1d(vals, output):
+    nLoci = vals.shape[-1]
+    for i in range(nLoci):
+        output[:,i] = log_norm_1D(vals[:, i])
+
+
+@jit(nopython=True, nogil = True)
+def log_norm_1D(mat):
+    log_exp_sum = 0
+    first = True
+    maxVal = 100
+    for a in range(4):
+        if mat[a] > maxVal or first:
+            maxVal = mat[a]
+        if first:
+            first = False
+
+    for a in range(4):
+        log_exp_sum += np.exp(mat[a] - maxVal)
+    
+    return mat - (np.log(log_exp_sum) + maxVal)
+
+   
+
+def call_genotype_probs(ind, geno_probs, calling_threshold = 0.1, set_genotypes = False, set_dosages = False, set_haplotypes = False) :
+    # Genotype ordering: aa, aA, Aa, AA. First loci is haplotypes[0]. Second loci is haplotypes[1].
+    geno_probs = geno_probs/np.sum(geno_probs, axis = 0)
+
+    if set_dosages:
+        dosages = geno_probs[1,:] + geno_probs[2,:] + 2*geno_probs[3,:]
+        ind.dosages = dosages
+
+    if set_genotypes:
+        # Collapse the two heterozygous states into one.
+        collapsed_hets = np.array([geno_probs[0,:], geno_probs[1,:] + geno_probs[2,:], geno_probs[3,:]], dtype=np.float32)
+        ind.genotypes[:] = call_matrix(collapsed_hets, calling_threshold)
+
+    if set_haplotypes:
+        # aa + aA, Aa + AA
+        haplotype_0 = np.array([geno_probs[0,:] + geno_probs[1,:], geno_probs[2,:] + geno_probs[3,:]], dtype=np.float32)
+        ind.haplotypes[0][:] = call_matrix(haplotype_0, calling_threshold)
+
+        # aa + Aa, aA + AA.
+        haplotype_1 = np.array([geno_probs[0,:] + geno_probs[2,:], geno_probs[1,:] + geno_probs[3,:]], dtype=np.float32)
+        ind.haplotypes[1][:] = call_matrix(haplotype_1, calling_threshold)
+
+
+def call_matrix(matrix, threshold):
+    called_genotypes = np.argmax(matrix, axis = 0)
+    setMissing(called_genotypes, matrix, threshold)
+    return called_genotypes.astype(np.int8)
+
+@jit(nopython=True)
+def setMissing(calledGenotypes, matrix, threshold) :
+    nLoci = len(calledGenotypes)
+    for i in range(nLoci):
+        if matrix[calledGenotypes[i],i] < threshold:
+            calledGenotypes[i] = 9
 
 
 @jit(nopython=True)

@@ -43,11 +43,8 @@ def getParser(program) :
         core_impute_parser.add_argument('-binaryoutput', action='store_true', required=False, help='Flag to write out the genotypes as a binary plink output.')
 
     if program in ["AlphaPeel", "AlphaAssign", "AlphaMGS", "AlphaCall"]:
-        prob_parser = parser.add_argument_group("Genotype probability arguments")
-
-        prob_parser.add_argument('-error', default=0.01, required=False, type=float, help='Genotyping error rate. [Default 0.01]')
-        prob_parser.add_argument('-seqerror', default=0.001, required=False, type=float, help='Assumed sequencing error rate. [Default 0.001]')
-    
+        add_genotype_probability_arguments(praser)
+        
     if program in ["longreads"]:
         longread_parser = parser.add_argument_group("Long read arguments")
         longread_parser.add_argument('-longreads', default=None, required=False, type=str, nargs="*", help='A read file.')
@@ -132,7 +129,7 @@ def getParser(program) :
 def addInputFileParser(parser):
     genotype_parser = parser.add_argument_group("Input arguments")
 
-    genotype_parser.add_argument('-bfile',   default=None, required=False, type=str, nargs="*", help='A file in plink (binary) format (only stable on Linux).')
+    genotype_parser.add_argument('-bfile',   default=None, required=False, type=str, nargs="*", help='A file in plink (binary) format. Only stable on Linux).')
     genotype_parser.add_argument('-genotypes', default=None, required=False, type=str, nargs="*", help='A file in AlphaGenes format.')
     genotype_parser.add_argument('-reference', default=None, required=False, type=str, nargs="*", help='A haplotype reference panel in AlphaGenes format.')
     genotype_parser.add_argument('-seqfile', default=None, required=False, type=str, nargs="*", help='A sequence data file.')
@@ -147,6 +144,13 @@ def addInputFileParser(parser):
     output_options_parser.add_argument('-writekey', default="id", required=False, type=str, help='Determines the order in which individuals are ordered in the output file based on their order in the corresponding input file. Animals not in the input file are placed at the end of the file and sorted in alphanumeric order. These animals can be surpressed with the "-onlykeyed" option. Options: id, pedigree, genotypes, sequence, segregation. Defualt: id.')
     output_options_parser.add_argument('-onlykeyed', action='store_true', required=False, help='Flag to surpress the animals who are not present in the file used with -outputkey. Also surpresses "dummy" animals.')
     output_options_parser.add_argument('-iothreads', default=1, required=False, type=int, help='Number of threads to use for io. Default: 1.')
+
+def add_genotype_probability_arguments(parser):
+    prob_parser = parser.add_argument_group("Genotype probability arguments")
+
+    prob_parser.add_argument('-error', default=0.01, required=False, type=float, help='Genotyping error rate. [Default 0.01]')
+    prob_parser.add_argument('-seqerror', default=0.001, required=False, type=float, help='Assumed sequencing error rate. [Default 0.001]')
+
 
 def parseArgs(program, parser = None, no_args = False):
     global args
