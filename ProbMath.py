@@ -20,7 +20,7 @@ def getGenotypeProbabilities_ind(ind, args = None, log = False):
     else:
         error = args.error
         seqError = args.seqerror
-        sexChromFlag = args.sexchrom and ind.sex == 0 #This is the sex chromosome and the individual is male.
+        sexChromFlag = getattr(args, "sexchrom", False) and ind.sex == 0 #This is the sex chromosome and the individual is male.
 
     if ind.reads is not None:
         nLoci = len(ind.reads[0])

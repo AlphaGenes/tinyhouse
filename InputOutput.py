@@ -236,7 +236,10 @@ def setNumbaSeeds(seed):
     random.seed(seed)
 
 def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, reads = False) :
-    if args.seed is not None:
+    # Try catch is incase the program does not have a seed option.
+    seed = getattr(args, "seed", None)
+
+    if seed is not None:
         np.random.seed(args.seed)
         random.seed(args.seed)
         setNumbaSeeds(args.seed)
@@ -249,26 +252,32 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
         for ped in args.pedigree:
             pedigree.readInPedigree(ped)
 
-    
-    if args.genotypes is not None: 
+    # This gets the attribute from args, but returns None if the atribute is not valid.
+    genotypes = getattr(args, "genotypes", None)    
+    reference = getattr(args, "reference", None)    
+    seqfile = getattr(args, "seqfile", None)    
+    phasefile = getattr(args, "phasefile", None)    
+    bfile = getattr(args, "bfile", None)
+
+    if genotypes is not None: 
         for geno in args.genotypes:
             pedigree.readInGenotypes(geno, args.startsnp, args.stopsnp)
     
-    if args.reference is not None: 
+    if reference is not None: 
         for ref in args.reference:
             pedigree.readInReferencePanel(ref, args.startsnp, args.stopsnp)
     
-    if args.seqfile is not None: 
+    if seqfile is not None: 
         for seq in args.seqfile:
             pedigree.readInSequence(seq, args.startsnp, args.stopsnp)
     
-    if args.phasefile is not None: 
+    if phasefile is not None: 
         if args.program == "AlphaPeel":
             print("Use of an external phase file is not currently supported. Phase information will be translated to genotype probabilities. If absolutely necessary use a penetrance file instead.") 
         for phase in args.phasefile:
             pedigree.readInPhase(phase, args.startsnp, args.stopsnp)
     
-    if args.bfile is not None: 
+    if bfile is not None: 
         global alphaplinkpython_avail
         if alphaplinkpython_avail:
             for plink in args.bfile:
