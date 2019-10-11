@@ -253,30 +253,30 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
             pedigree.readInPedigree(ped)
 
     # This gets the attribute from args, but returns None if the atribute is not valid.
+    
     genotypes = getattr(args, "genotypes", None)    
-    reference = getattr(args, "reference", None)    
-    seqfile = getattr(args, "seqfile", None)    
-    phasefile = getattr(args, "phasefile", None)    
-    bfile = getattr(args, "bfile", None)
-
     if genotypes is not None: 
         for geno in args.genotypes:
             pedigree.readInGenotypes(geno, args.startsnp, args.stopsnp)
     
+    reference = getattr(args, "reference", None)    
     if reference is not None: 
         for ref in args.reference:
             pedigree.readInReferencePanel(ref, args.startsnp, args.stopsnp)
     
+    seqfile = getattr(args, "seqfile", None)    
     if seqfile is not None: 
         for seq in args.seqfile:
             pedigree.readInSequence(seq, args.startsnp, args.stopsnp)
     
+    phasefile = getattr(args, "phasefile", None)    
     if phasefile is not None: 
         if args.program == "AlphaPeel":
             print("Use of an external phase file is not currently supported. Phase information will be translated to genotype probabilities. If absolutely necessary use a penetrance file instead.") 
         for phase in args.phasefile:
             pedigree.readInPhase(phase, args.startsnp, args.stopsnp)
     
+    bfile = getattr(args, "bfile", None)
     if bfile is not None: 
         global alphaplinkpython_avail
         if alphaplinkpython_avail:
