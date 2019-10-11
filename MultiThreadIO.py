@@ -11,8 +11,10 @@ def convert_data_to_line(data_tuple, fmt) :
 
 def writeLines(fileName, data_list, fmt):
     print(f"Writing results to: {fileName}")
-
-    iothreads = InputOutput.args.iothreads
+    try:
+        iothreads = InputOutput.args.iothreads
+    except:
+        iothreads = 1
 
     with open(fileName, 'w+') as f:
 
