@@ -87,7 +87,7 @@ class HaplotypeLibrary(object):
 
     def masked(self, identifier):
         """Returns a copy of all haplotypes *not* associated with an identifier
-        (The copy is due the use of fancy indexing)
+        (The copy is due to the use of fancy indexing)
         If identifier is not in the library, then all haplotypes are returned"""
         if not self._frozen:
             raise RuntimeError('Cannot mask an unfrozen library')
