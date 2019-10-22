@@ -14,9 +14,9 @@ class HaplotypeLibrary(object):
     The identifiers are used to select haplotypes for updating or masking
     Haplotypes should be NumPy arrays of dtype np.int8
 
-    Some functions only work on frozen libraries; some only on unfrozen ones. 
-    Use freeze() and unfreeze() to swap between the two states. Typically a library is 
-    built with append() and then frozen to enable additional functionality (sample(), masked(), etc.)"""
+    Some functions only work on frozen libraries; some only on unfrozen ones.
+    Use freeze() and unfreeze() to swap between the two states. Typically a library is
+    built with append() and then frozen to enable additional functionality"""
 
     # NOTES: 
     # Change to HaplotypeLibrary <= no 2
@@ -72,27 +72,39 @@ class HaplotypeLibrary(object):
             raise ValueError(f"Indentifer '{identifier}' does not have exactly two haplotypes in the library")
         self._haplotypes[indices] = np.vstack([paternal_haplotype, maternal_haplotype])
 
-    def sample(self, n_haplotypes):
-        """Return a randomly sampled HaplotypeLibrary() of n_haplotypes"""
+    def exclude_identifiers(self, identifiers):
+        """Return a NumPy array of haplotypes excluding specified identifiers
+        'identifiers' can be a single identifier or iterable of identifiers""" 
         if not self._frozen:
-            raise RuntimeError('Cannot sample an unfrozen library')
+            raise RuntimeError('Cannot exclude from an unfrozen library')
+        mask = ~np.isin(self._identifiers, identifiers)
+        return self._haplotypes[mask]
+
+    def sample(self, n_haplotypes):
+        """Return a NumPy array of randomly sampled haplotypes"""
+        if not self._frozen:
+            raise RuntimeError('Cannot sample from an unfrozen library')
         if n_haplotypes > len(self):
             n_haplotypes = len(self)
         sampled_indices = np.sort(np.random.choice(len(self), size=n_haplotypes, replace=False))
-        library = HaplotypeLibrary(self._n_loci)
-        library._frozen = True
-        library._haplotypes = self._haplotypes[sampled_indices]
-        library._identifiers = self._identifiers[sampled_indices]
-        return library
+        return self._haplotypes[sampled_indices]
 
-    def masked(self, identifier):
-        """Returns a copy of all haplotypes *not* associated with an identifier
-        (The copy is due to the use of fancy indexing)
-        If identifier is not in the library, then all haplotypes are returned"""
+    def exclude_identifiers_and_sample(self, identifiers, n_haplotypes):
+        """Return a NumPy array of (n_haplotypes) randomly sampled haplotypes
+        excluding specified identifiers. 
+        'identifiers' can be a single identifier or an iterable of identifiers
+        Note: A copy of the haplotypes are created because of fancy indexing"""
+        # Exclude specified identifiers
         if not self._frozen:
-            raise RuntimeError('Cannot mask an unfrozen library')
-        mask = (self._identifiers != identifier)
-        return self._haplotypes[mask]
+            raise RuntimeError('Cannot sample or exclude from an unfrozen library')
+        exclude_mask = ~np.isin(self._identifiers, identifiers)
+        n_remaining_haplotypes = exclude_mask.sum()
+        # Generate random sample
+        if n_haplotypes > n_remaining_haplotypes:
+            n_haplotypes = n_remaining_haplotypes
+        sampled_indices = np.random.choice(n_remaining_haplotypes, size=n_haplotypes, replace=False)
+        sampled_indices.sort()
+        return self._haplotypes[exclude_mask][sampled_indices]
 
     def asMatrix(self):
         """Return the NumPy array - kept for backwards compatibility"""
