@@ -135,7 +135,7 @@ def haploidTransformProbs(previous, estimate, point_estimate, recombination_rate
     Note: previous and estimate are updated by this function
     """      
     n_haps = len(previous)
-    new = np.empty(n_haps, 0, dtype=np.float32)
+    new = np.empty(n_haps, dtype=np.float32)
     
     # Get estimate at this locus and normalize
     for j in range(n_haps):
