@@ -513,13 +513,24 @@ class Pedigree(object):
                 dam.offspring.append(ind)
                 dam.sex = 1
 
+            # Optional fourth column contains sex OR inbred/outbred status
             if len(parts) > 3:
-                if parts[3] == "M" or parts[3] == "m" or parts[3] == "0" or parts[3] == "XY":
+                male, female = {'m', '0', 'xy'}, {'f', '1', 'xx'}
+                inbred, outbred = {'dh', 'inbred'}, {'outbred'}
+                expected_entries = male | female | inbred | outbred
+                if parts[3].lower() not in expected_entries:
+                    raise ValueError(f"Unexpected entry in pedigree file, fourth field: '{parts[3]}'")
+                # Sex
+                if parts[3].lower() in male:
                     ind.sex = 0
-                elif parts[3] == "F" or parts[3] == "f" or parts[3] == "1" or parts[3] == "XX":
+                elif parts[3].lower() in female:
                     ind.sex = 1
-                else:
-                    ind.sex = 1 #Default to homogemetic.
+                # Inbred/DH
+                if parts[3].lower() in inbred:
+                    ind.inbred = True
+                elif parts[3].lower() in outbred:
+                    ind.inbred = False
+
 
     def readInFromPlink(self, idList, pedList, bed, externalPedigree = False):
         index = 0
