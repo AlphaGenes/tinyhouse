@@ -59,8 +59,26 @@ class HaplotypeLibrary(object):
         self._haplotypes = list(self._haplotypes)
         self._identifiers = list(self._identifiers)
         self._frozen = False
-        
-    def update_pair(self, paternal_haplotype, maternal_haplotype, identifier):
+
+    def update(self, haplotypes, identifier):
+        """Update identifier's haplotypes
+        'haplotypes' can be a 1d array of loci or a 2d array of shape(#haps, #loci)"""
+        if not self._frozen:
+            raise RuntimeError('Cannot update an unfrozen library')
+        self._check_identifier_exists(identifier)
+        indices = self._indices(identifier)
+        # Change haplotypes from 1d to 2d if necessary
+        if haplotypes.ndim == 1:
+            haplotypes = haplotypes[None, :]
+        n_haplotypes = haplotypes.shape[0]
+        self._check_haplotype(haplotypes, expected_shape=(n_haplotypes, self._n_loci))
+        # Check number of supplied haplotypes matches the number in the library
+        if len(indices) != n_haplotypes:
+            raise ValueError(f'Number of supplied haplotypes does not match that in the library')
+        # Update the haplotypes
+        self._haplotypes[indices] = haplotypes
+
+    def update_pair(self, paternal_haplotype, maternal_haplotype, identifier): # this can be refactored to call update() or removed
         """Update a pair of haplotypes"""
         if not self._frozen:
             raise RuntimeError('Cannot update an unfrozen library')
@@ -118,7 +136,7 @@ class HaplotypeLibrary(object):
             removeMissingValues(hap)
     
     def _indices(self, identifier):
-        """Get rows indices associated with an identifier. These can be used for fancy indexing"""
+        """Get row indices associated with an identifier. These can be used for fancy indexing"""
         if not self._frozen:
             raise RuntimeError('Cannot run _indices() on an unfrozen library')
         return  np.flatnonzero(self._identifiers == identifier).tolist()
