@@ -1,9 +1,6 @@
-
 import random
 import numpy as np
-import numba
-from numba import njit, jit, int8, int32,int64, boolean, deferred_type, optional, jitclass, float32
-from collections import OrderedDict, defaultdict
+from numba import njit, jit
 
 def profile(x):
     return x
@@ -18,10 +15,6 @@ class HaplotypeLibrary(object):
     Use freeze() and unfreeze() to swap between the two states. Typically a library is
     built with append() and then frozen to enable additional functionality"""
 
-    # NOTES: 
-    # Change to HaplotypeLibrary <= no 2
-    
-    
     def __init__(self, n_loci):
         self._n_loci = n_loci
         self._frozen = False
@@ -36,14 +29,14 @@ class HaplotypeLibrary(object):
         return len(self._haplotypes)
 
     def append(self, haplotype, identifier=None):
-        """Append a single haplotype to the library. 
+        """Append a single haplotype to the library.
         Note: a copy of the haplotype is taken"""
         if self._frozen:
             raise RuntimeError('Cannot append to frozen library')
         self._check_haplotype(haplotype, expected_shape=(self._n_loci,))
         self._identifiers.append(identifier)
         self._haplotypes.append(haplotype.copy())
-        
+
     def freeze(self):
         """Freeze the library: convert identifier and haplotype lists to NumPy arrays"""
         if self._frozen:
@@ -67,26 +60,12 @@ class HaplotypeLibrary(object):
             raise RuntimeError('Cannot update an unfrozen library')
         self._check_haplotype_dtype(haplotypes)
         indices = self._indices(identifier)
-        # If the shape of 'haplotypes' doesn't match the number of haplotypes that 'identifier'
-        # has in the library, or the correct number of loci then NumPy will raise a ValueError
-        # in the following:
+        # Use Numpy's broadcasting checks to handle mismatch of shape in the following:
         self._haplotypes[indices] = haplotypes
-
-    def update_pair(self, paternal_haplotype, maternal_haplotype, identifier): # this can be refactored to call update() or removed
-        """Update a pair of haplotypes"""
-        if not self._frozen:
-            raise RuntimeError('Cannot update an unfrozen library')
-        self._check_identifier_exists(identifier)
-        self._check_haplotype(paternal_haplotype, expected_shape=(self._n_loci,))
-        self._check_haplotype(maternal_haplotype, expected_shape=(self._n_loci,))
-        indices = self._indices(identifier)
-        if len(indices) != 2:
-            raise ValueError(f"Indentifer '{identifier}' does not have exactly two haplotypes in the library")
-        self._haplotypes[indices] = np.vstack([paternal_haplotype, maternal_haplotype])
 
     def exclude_identifiers(self, identifiers):
         """Return a NumPy array of haplotypes excluding specified identifiers
-        'identifiers' can be a single identifier or iterable of identifiers""" 
+        'identifiers' can be a single identifier or iterable of identifiers"""
         if not self._frozen:
             raise RuntimeError('Cannot exclude from an unfrozen library')
         mask = ~np.isin(self._identifiers, identifiers)
@@ -103,7 +82,7 @@ class HaplotypeLibrary(object):
 
     def exclude_identifiers_and_sample(self, identifiers, n_haplotypes):
         """Return a NumPy array of (n_haplotypes) randomly sampled haplotypes
-        excluding specified identifiers. 
+        excluding specified identifiers.
         'identifiers' can be a single identifier or an iterable of identifiers
         Note: A copy of the haplotypes are created because of fancy indexing"""
         # Exclude specified identifiers
@@ -123,17 +102,19 @@ class HaplotypeLibrary(object):
         if self._frozen:
             return self._haplotypes.copy()
         return np.array(self._haplotypes)
-    
+
     def removeMissingValues(self):
-        """Replace missing values randomly with 0 or 1 with 50 % probability - kept for backwards compatibility"""
+        """Replace missing values randomly with 0 or 1 with 50 % probability
+        kept for backwards compatibility"""
         for hap in self._haplotypes:
             removeMissingValues(hap)
-    
+
     def _indices(self, identifier):
         """Get row indices associated with an identifier. These can be used for fancy indexing"""
         if not self._frozen:
-            raise RuntimeError("Cannot get identifier's indices from an unfrozen library")
-        self._check_identifier_exists(identifier)
+            raise RuntimeError("Cannot get indices from an unfrozen library")
+        if identifier not in self._identifiers:
+            raise KeyError(f"Identifier '{identifier}' not in library")
         return  np.flatnonzero(self._identifiers == identifier).tolist()
 
     def _check_haplotype_dtype(self, haplotype):
@@ -144,15 +125,11 @@ class HaplotypeLibrary(object):
     def _check_haplotype(self, haplotype, expected_shape):
         """Check haplotype has expected shape and dtype.
         Could extend to check values in {0,1,9}"""
+        self._check_haplotype_dtype(haplotype)
         if haplotype.shape != expected_shape:
             raise ValueError('haplotype(s) has unexpected shape')
-        self._check_haplotype_dtype(haplotype)
 
-    def _check_identifier_exists(self, identifier):
-        if identifier not in self._identifiers:
-            raise KeyError(f"Identifier '{identifier}' not in library")
-            
-            
+
 @njit
 def removeMissingValues(hap):
     for i in range(len(hap)) :
