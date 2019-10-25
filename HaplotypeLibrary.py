@@ -65,17 +65,11 @@ class HaplotypeLibrary(object):
         'haplotypes' can be a 1d array of loci or a 2d array of shape(#haps, #loci)"""
         if not self._frozen:
             raise RuntimeError('Cannot update an unfrozen library')
-        self._check_identifier_exists(identifier)
+        self._check_haplotype_dtype(haplotypes)
         indices = self._indices(identifier)
-        # Change haplotypes from 1d to 2d if necessary
-        if haplotypes.ndim == 1:
-            haplotypes = haplotypes[None, :]
-        n_haplotypes = haplotypes.shape[0]
-        self._check_haplotype(haplotypes, expected_shape=(n_haplotypes, self._n_loci))
-        # Check number of supplied haplotypes matches the number in the library
-        if len(indices) != n_haplotypes:
-            raise ValueError(f'Number of supplied haplotypes does not match that in the library')
-        # Update the haplotypes
+        # If the shape of 'haplotypes' doesn't match the number of haplotypes that 'identifier'
+        # has in the library, or the correct number of loci then NumPy will raise a ValueError
+        # in the following:
         self._haplotypes[indices] = haplotypes
 
     def update_pair(self, paternal_haplotype, maternal_haplotype, identifier): # this can be refactored to call update() or removed
@@ -138,16 +132,21 @@ class HaplotypeLibrary(object):
     def _indices(self, identifier):
         """Get row indices associated with an identifier. These can be used for fancy indexing"""
         if not self._frozen:
-            raise RuntimeError('Cannot run _indices() on an unfrozen library')
+            raise RuntimeError("Cannot get identifier's indices from an unfrozen library")
+        self._check_identifier_exists(identifier)
         return  np.flatnonzero(self._identifiers == identifier).tolist()
+
+    def _check_haplotype_dtype(self, haplotype):
+        """Check the haplotype has expected dtype"""
+        if haplotype.dtype != np.int8:
+            raise TypeError('haplotype(s) not dtype np.int8')
 
     def _check_haplotype(self, haplotype, expected_shape):
         """Check haplotype has expected shape and dtype.
         Could extend to check values in {0,1,9}"""
         if haplotype.shape != expected_shape:
             raise ValueError('haplotype(s) has unexpected shape')
-        if haplotype.dtype != np.int8:
-            raise TypeError('haplotype(s) not dtype np.int8')
+        self._check_haplotype_dtype(haplotype)
 
     def _check_identifier_exists(self, identifier):
         if identifier not in self._identifiers:
