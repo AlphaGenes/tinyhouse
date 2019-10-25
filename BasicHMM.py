@@ -58,12 +58,13 @@ def haploidHMM(targetHaplotype, sourceHaplotypes, error, recombinationRate, thre
 
 
 @jit(nopython=True)
-def getHaploidDosages(hapEst, sourceHaplotypes):
-    nHaps, nLoci = hapEst.shape
-    dosages = np.full(nLoci, 0, dtype = np.float32)
-    for i in range(nLoci):
-        for j in range(nHaps):
-            dosages[i] += sourceHaplotypes[j, i]*hapEst[j,i]
+def getHaploidDosages(hap_est, source_haplotypes):
+    """Calculate dosages for a single haplotype"""
+    n_loci, n_haps = hap_est.shape
+    dosages = np.zeros(n_loci, dtype=np.float32)
+    for i in range(n_loci):
+        for j in range(n_haps):
+            dosages[i] += source_haplotypes[j, i] * hap_est[i, j]
     return dosages
 
 
