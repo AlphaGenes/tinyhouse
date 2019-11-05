@@ -130,6 +130,21 @@ class HaplotypeLibrary(object):
             raise ValueError('haplotype(s) has unexpected shape')
 
 
+@jit(nopython=True)
+def haplotype_from_indices(indices, haplotype_library):
+    """Helper function that takes an array of indices (for each locus) that 'point' to rows
+    in a haplotype library (NumPy array) and extracts the alleles from the corresponding haplotypes
+    (in the library)
+    Returns: a haplotype array of length n_loci"""
+
+    n_loci = len(indices)
+    haplotype = np.empty(n_loci, dtype=np.int8)
+    for col_idx in range(n_loci):
+        row_idx = indices[col_idx]
+        haplotype[col_idx] = haplotype_library[row_idx, col_idx]
+    return haplotype
+
+
 @njit
 def removeMissingValues(hap):
     for i in range(len(hap)) :

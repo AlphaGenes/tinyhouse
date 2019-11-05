@@ -1,4 +1,4 @@
-from numba import jit, float32
+from numba import jit
 import numpy as np
 
 
@@ -12,10 +12,10 @@ def multinomial_sample(pvals):
     cumsum = np.cumsum(pvals)
     # Random float in the half-open interval [0.0, sum(pvals)) - this handles pvals that don't sum to 1
     rand = np.random.random() * cumsum[-1]
-    # Find where the cumulative sum exceeds the random float and return that index 
+    # Find where the cumulative sum exceeds the random float and return that index
     for index, value in enumerate(cumsum):
         if value > rand:
-            break       
+            break
     return index
 
 
@@ -30,3 +30,18 @@ def multinomial_sample_2d(pvals):
     # Convert 1d index to 2d and return indices tuple
     ncols = pvals.shape[1]
     return (index//ncols, index%ncols)
+
+
+@jit(nopython=True)
+def haplotype_from_indices(indices, haplotype_library):
+    """Helper function that takes an array of indices (for each locus) that 'point' to rows
+    in a haplotype library and extracts the alleles from the corresponding haplotypes
+    (in the library)
+    Returns: a haplotype array of length n_loci"""
+
+    n_loci = len(indices)
+    haplotype = np.empty(n_loci, dtype=np.int8)
+    for col_idx in range(n_loci):
+        row_idx = indices[col_idx]
+        haplotype[col_idx] = haplotype_library[row_idx, col_idx]
+    return haplotype

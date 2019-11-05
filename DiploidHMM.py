@@ -2,7 +2,7 @@ from numba import jit
 import numpy as np
 from . import ProbMath
 from . import NumbaUtils
-
+from . HaplotypeLibrary import haplotype_from_indices
 
 def diploidHMM(ind, paternalHaplotypes, maternalHaplotypes, error, recombinationRate, callingMethod = "dosages", useCalledHaps = True, includeGenoProbs = False): 
 
@@ -397,8 +397,8 @@ def diploidSampleHaplotypes(forward_probs, recombination_rate, paternal_haplotyp
     n_loci = forward_probs.shape[0]
     haplotypes = np.full((2, n_loci), 9, dtype=np.int8)
     paternal_indices, maternal_indices = diploidOneSample(forward_probs, recombination_rate)
-    haplotypes[0] = haplotypeFromHaplotypeIndices(paternal_indices, paternal_haplotypes)
-    haplotypes[1] = haplotypeFromHaplotypeIndices(maternal_indices, maternal_haplotypes)
+    haplotypes[0] = haplotype_from_indices(paternal_indices, paternal_haplotypes)
+    haplotypes[1] = haplotype_from_indices(maternal_indices, maternal_haplotypes)
     
     return haplotypes
 

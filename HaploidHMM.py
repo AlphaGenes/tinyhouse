@@ -1,7 +1,7 @@
 from numba import jit
 import numpy as np
 from . import NumbaUtils
-
+from . HaplotypeLibrary import haplotype_from_indices
 
 def haploidHMM(targetHaplotype, sourceHaplotypes, error, recombinationRate, threshold=0.9, n_samples=10, callingMethod="dosages"):
 
@@ -198,22 +198,7 @@ def haploidSampleHaplotype(forward_probs, haplotype_library, recombination_rate)
     """Sample one haplotype (an individual) from the forward and backward probability distributions
     Returns: a sampled haploytpe of length n_loci"""
     indices = haploidOneSample(forward_probs, recombination_rate)
-    return haplotypeFromHaplotypeIndices(indices, haplotype_library)
-
-
-@jit(nopython=True)
-def haplotypeFromHaplotypeIndices(indices, haplotype_library):
-    """Helper function that takes an array of indices (for each locus) that 'point' to rows
-    in a haplotype library and extracts the alleles from the corresponding haplotypes 
-    (in the library)
-    Returns: a haplotype array of length n_loci"""
-
-    n_loci = len(indices)
-    haplotype = np.empty(n_loci, dtype=np.int8)
-    for col_idx in range(n_loci):
-        row_idx = indices[col_idx]
-        haplotype[col_idx] = haplotype_library[row_idx, col_idx]
-    return haplotype
+    return haplotype_from_indices(indices, haplotype_library)
 
 
 @jit(nopython=True)
