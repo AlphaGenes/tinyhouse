@@ -26,36 +26,52 @@ def diploidHMM(ind, paternalHaplotypes, maternalHaplotypes, error, recombination
     ### Build haploid HMM. 
     ###Construct penetrance values
 
+    
     if useCalledHaps:
         pointEst = getDiploidPointEstimates(ind.genotypes, ind.haplotypes[0], ind.haplotypes[1], paternalHaplotypes, maternalHaplotypes, error)
+    elif callingMethod == 'sample':
+        point_estimate = np.empty((n_loci, n_pat, n_mat), dtype=np.float32)
+        getDiploidPointEstimates_geno(ind.genotype, paternalHaplotypes, maternalHaplotypes, error, point_estimate)
     else:
         probs = ProbMath.getGenotypeProbabilities_ind(ind)
         pointEst = getDiploidPointEstimates_probs(probs, paternalHaplotypes, maternalHaplotypes, error)
 
+    if callingMethod == 'sample':
+        # Do this before other 'callingMethods' as we don't need the forward backward probs
+        # I'm tempted to put the point_est calculation into do_stuff() rather than making a complex conditional above
+        # Need to compare performance from Jupyter or with the 'timeit' decorator
+        haplotypes = do_stuff(point_estimate, recombinationRate, paternalHaplotypes, maternalHaplotypes,)
+        # Update individual 'ind'
+        ind.haplotypes = haplotypes
+        return
     
     # if prior is not None:
     #     addDiploidPrior(pointEst, prior)
 
-    ### Run forward-backward algorithm on penetrance values.
-
+    # Run forward-backward algorithm on penetrance values
     hapEst = diploidForwardBackward(pointEst, recombinationRate)
-    # for i in range(nLoci) :
-    #     print(hapEst[:,:,i])
-    # raise Exception()
-
-
-    if callingMethod == "dosages" :
+    
+    if callingMethod == "dosages":
         dosages = getDiploidDosages(hapEst, paternalHaplotypes, maternalHaplotypes)
         ind.dosages = dosages
-
-    if callingMethod == "probabilities" :
+    if callingMethod == "probabilities":
         values = getDiploidProbabilities(hapEst, paternalHaplotypes, maternalHaplotypes)
         ind.info = values
-
     if callingMethod == "callhaps":
         raise ValueError("callhaps not yet implimented.")
-    if callingMethod == "viterbi" :
+    if callingMethod == "viterbi":
         raise ValueError("Viterbi not yet implimented.")
+
+
+@jit(nopython=True)
+def do_stuff(point_estimate, recombination_rate, paternal_haps, maternal_haps):
+    """
+    Move further down"""
+    forward_probs = diploid_forward(point_estimate, recombination_rate, in_place=True)
+    haplotypes = diploidSampleHaplotypes(forward_probs, recombination_rate, paternal_haps, maternal_haps)
+#    correct_haplotypes(haplotypes[0], haplotypes[1], true_genotype, maf)
+    return haplotypes
+
 
 @jit(nopython=True)
 def addDiploidPrior(pointEst, prior):
