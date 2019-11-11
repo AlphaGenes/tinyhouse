@@ -95,14 +95,14 @@ def getDiploidProbabilities(hapEst, paternalHaplotypes, maternalHaplotypes):
                     probs[3, i] += hapEst[j, k, i]
     return probs
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def getDiploidSample(point_estimate, recombination_rate, paternal_haps, maternal_haps):
     """Sample a pair of haplotypes"""
     forward_probs = diploid_forward(point_estimate, recombination_rate, in_place=True)
     haplotypes = diploidSampleHaplotypes(forward_probs, recombination_rate, paternal_haps, maternal_haps)
     return haplotypes
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def getDiploidPointEstimates(indGeno, indPatHap, indMatHap, paternalHaplotypes, maternalHaplotypes, error):
     nPat, nLoci = paternalHaplotypes.shape
     nMat, nLoci = maternalHaplotypes.shape
@@ -133,7 +133,7 @@ def getDiploidPointEstimates(indGeno, indPatHap, indMatHap, paternalHaplotypes, 
                             pointEst[i,j,k] = error[i]*error[i]
     return pointEst
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def getDiploidPointEstimates_geno(indGeno, paternalHaplotypes, maternalHaplotypes, error, pointEst):
     nPat, nLoci = paternalHaplotypes.shape
     nMat, nLoci = maternalHaplotypes.shape
