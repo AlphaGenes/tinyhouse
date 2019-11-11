@@ -3,57 +3,46 @@ import numpy as np
 from . import NumbaUtils
 from . HaplotypeLibrary import haplotype_from_indices
 
-def haploidHMM(targetHaplotype, sourceHaplotypes, error, recombinationRate, threshold=0.9, n_samples=10, callingMethod="dosages"):
+def haploidHMM(individual, source_haplotypes, error, recombination_rate, threshold=0.9, calling_method='dosages'):
 
-    nLoci = len(targetHaplotype)
+    target_haplotype = individual.haplotypes
+    n_loci = len(target_haplotype)
 
     # !!!! May need to cast the source Haplotypes to a matrix. #May also want to handle the probabilistic case.
-    if type(sourceHaplotypes) is list:
-        sourceHaplotypes = np.array(sourceHaplotypes)
-    
+    if type(source_haplotypes) is list:
+        source_haplotypes = np.array(source_haplotypes)
+
+    # Expand error and recombinationRate to arrays as may need to have
+    # marker specific error/recombination rates.
     if type(error) is float:
-        error = np.full(nLoci, error, dtype = np.float32)
+        error = np.full(n_loci, error, dtype=np.float32)
+    if type(recombination_rate) is float:
+        recombination_rate = np.full(n_loci, recombination_rate, dtype=np.float32)
 
-    if type(recombinationRate) is float:
-        recombinationRate = np.full(nLoci, recombinationRate, dtype = np.float32)
-    # !!!! May need to have marker specific error/recombination rates.
+    # Construct penetrance values (point estimates)
+    point_estimates = getHaploidPointEstimates(target_haplotype, source_haplotypes, error)
 
+    # Run forward-backward algorithm on penetrance values
+    # Note: don't need these probabilites if using the sample method
+    if calling_method != 'sample':
+        total_probs = haploidForwardBackward(point_estimates, recombination_rate)
 
-    ### Build haploid HMM. 
-    ###Construct penetrance values
-
-    pointEst = getHaploidPointEstimates(targetHaplotype, sourceHaplotypes, error)
-    ### Run forward-backward algorithm on penetrance values.
-
-    # Don't need forward backward probabilites if using the sampler method
-    if callingMethod != 'sampler':
-        hapEst = haploidForwardBackward(pointEst, recombinationRate)
-
-    # for i in range(nLoci) :
-    #     print(hapEst[:,i])
-
-    # raise Exception()
-
-    ### Could also do a sampling approach, or a viterbi approach, or get dosages...
-    ### Averaging over multiple samples doesn't make sense. Dosages would be better in that case.
-    ### Viterbi would be an alternative.
-
-    # callingMethod = "callhaps"
-    if callingMethod == "callhaps":
-        ### Call haplotypes.
-        calledHaps = haploidCallHaps(hapEst, threshold) 
-        ### Call genotypes.
-        calledGenotypes = getHaploidGenotypes(calledHaps, sourceHaplotypes)
-        return calledGenotypes
-    if callingMethod == "dosages" :
-        dosages = getHaploidDosages(hapEst, sourceHaplotypes)
+    # Handle the different calling methods
+    if calling_method == 'callhaps':
+        # Call haplotypes
+        called_haps = haploidCallHaps(total_probs, threshold)
+        # Call genotypes
+        called_genotypes = getHaploidGenotypes(called_haps, source_haplotypes)
+        return called_genotypes
+    if calling_method == 'dosages':
+        dosages = getHaploidDosages(total_probs, source_haplotypes)
         return dosages
-    if callingMethod == 'sampler':
-        dosages = getSampledDosages(pointEst, sourceHaplotypes, recombinationRate, n_samples)
-        return dosages
-
-    if callingMethod == "viterbi" :
-        raise ValueError("Viterbi not yet implimented.")
+    if calling_method == 'sample':
+        haplotype = getHaploidSample(point_estimates, recombination_rate, source_haplotypes)
+        individual.imputed_haplotypes = haplotype
+        return
+    if calling_method == 'viterbi':
+        raise ValueError('Viterbi not yet implimented.')
 
 
 @jit(nopython=True)
@@ -67,19 +56,12 @@ def getHaploidDosages(hap_est, source_haplotypes):
     return dosages
 
 
-@jit(nopython=True)
-def getSampledDosages(point_estimates, haplotype_library, recombination_rate, n_samples=10):
-    """Calculate dosages for a single haplotype by sampling"""
-
-    # Pre-calculate forward probabilities
+@jit(nopython=True, nogil=True)
+def getHaploidSample(point_estimates, recombination_rate, source_haps):
+    """Sample a haplotype"""
     forward_probs = haploidForward(point_estimates, recombination_rate)
-
-    # Update sampled dosages as the mean of each sample
-    n_loci = point_estimates.shape[1]
-    dosages = np.zeros(n_loci, dtype=np.float32)
-    for i in range(n_samples):
-        dosages += haploidSampler(forward_probs, haplotype_library, recombination_rate)
-    return dosages / n_samples
+    haplotype = haploidSampleHaplotype(forward_probs, source_haps, recombination_rate)
+    return haplotype
 
 
 @jit(nopython=True)
@@ -105,7 +87,7 @@ def getHaploidGenotypes(calledHaps, sourceHaplotypes):
             calledGenotypes[i] = sourceHaplotypes[calledHaps[i],i]
     return calledGenotypes
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def getHaploidPointEstimates(targetHaplotype, sourceHaplotypes, error):
     nHaps, nLoci = sourceHaplotypes.shape
     pointMat = np.full((nLoci, nHaps), 1, dtype=np.float32)
