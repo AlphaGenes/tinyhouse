@@ -30,11 +30,14 @@ def diploidHMM(ind, paternalHaplotypes, maternalHaplotypes, error, recombination
     if useCalledHaps:
         pointEst = getDiploidPointEstimates(ind.genotypes, ind.haplotypes[0], ind.haplotypes[1], paternalHaplotypes, maternalHaplotypes, error)
     elif callingMethod == 'sample':
-        point_estimate = np.empty((n_loci, n_pat, n_mat), dtype=np.float32)
-        getDiploidPointEstimates_geno(ind.genotype, paternalHaplotypes, maternalHaplotypes, error, point_estimate)
+        n_pat = len(paternalHaplotypes)
+        n_mat = len(maternalHaplotypes)
+        point_estimate = np.empty((nLoci, n_pat, n_mat), dtype=np.float32)
+        getDiploidPointEstimates_geno(ind.genotypes, paternalHaplotypes, maternalHaplotypes, error, point_estimate)
     else:
         probs = ProbMath.getGenotypeProbabilities_ind(ind)
         pointEst = getDiploidPointEstimates_probs(probs, paternalHaplotypes, maternalHaplotypes, error)
+
 
     if callingMethod == 'sample':
         # Do this before other 'callingMethods' as we don't need the forward backward probs
