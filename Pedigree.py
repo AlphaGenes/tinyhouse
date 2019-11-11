@@ -53,6 +53,9 @@ class Individual(object):
         self.haplotypes = None
         self.dosages = None
 
+        self.imputed_genotypes = None
+        self.imputed_haplotypes = None
+
         self.reads = None
         self.longReads = []
 
