@@ -4,7 +4,7 @@ from . import ProbMath
 from . import NumbaUtils
 from . HaplotypeLibrary import haplotype_from_indices
 
-def diploidHMM(individual, paternal_haplotypes, maternal_haplotypes, error, recombination_rate, callingMethod='dosages', use_called_haps=True, include_geno_probs=False):
+def diploidHMM(individual, paternal_haplotypes, maternal_haplotypes, error, recombination_rate, calling_method='dosages', use_called_haps=True, include_geno_probs=False):
 
     n_loci = len(individual.genotypes)
 
@@ -25,17 +25,17 @@ def diploidHMM(individual, paternal_haplotypes, maternal_haplotypes, error, reco
     # Construct penetrance values (point estimates)
     if use_called_haps:
         point_estimates = getDiploidPointEstimates(individual.genotypes, individual.haplotypes[0], individual.haplotypes[1], paternal_haplotypes, maternal_haplotypes, error)
-    elif callingMethod == 'sample':
+    elif calling_method == 'sample' or calling_method == 'dosages':
         n_pat = len(paternal_haplotypes)
         n_mat = len(maternal_haplotypes)
-        point_estimates = np.empty((n_loci, n_pat, n_mat), dtype=np.float32)
+        point_estimates = np.ones((n_loci, n_pat, n_mat), dtype=np.float32)
         getDiploidPointEstimates_geno(individual.genotypes, paternal_haplotypes, maternal_haplotypes, error, point_estimates)
     else:
         probs = ProbMath.getGenotypeProbabilities_ind(individual)
         point_estimates = getDiploidPointEstimates_probs(probs, paternal_haplotypes, maternal_haplotypes, error)
 
     # Do 'sample' before other 'callingMethods' as we don't need the forward-backward probs
-    if callingMethod == 'sample':
+    if calling_method == 'sample':
         haplotypes = getDiploidSample(point_estimates, recombination_rate, paternal_haplotypes, maternal_haplotypes,)
         individual.imputed_haplotypes = haplotypes
         return
@@ -43,15 +43,15 @@ def diploidHMM(individual, paternal_haplotypes, maternal_haplotypes, error, reco
     # Run forward-backward algorithm on penetrance values
     total_probs = diploidForwardBackward(point_estimates, recombination_rate)
 
-    if callingMethod == 'dosages':
+    if calling_method == 'dosages':
         dosages = getDiploidDosages(total_probs, paternal_haplotypes, maternal_haplotypes)
         individual.dosages = dosages
-    if callingMethod == 'probabilities':
+    if calling_method == 'probabilities':
         values = getDiploidProbabilities(total_probs, paternal_haplotypes, maternal_haplotypes)
         individual.info = values
-    if callingMethod == 'callhaps':
+    if calling_method == 'callhaps':
         raise ValueError('callhaps not yet implimented.')
-    if callingMethod == 'viterbi':
+    if calling_method == 'viterbi':
         raise ValueError('Viterbi not yet implimented.')
 
 
@@ -67,7 +67,7 @@ def addDiploidPrior(pointEst, prior):
 def getDiploidDosages(hapEst, paternalHaplotypes, maternalHaplotypes):
     nPat, nLoci = paternalHaplotypes.shape
     nMat, nLoci = maternalHaplotypes.shape
-    dosages = np.full(nLoci, 0, dtype = np.float32)
+    dosages = np.full(nLoci, 0, dtype=np.float32)
     for i in range(nLoci):
         for j in range(nPat):
             for k in range(nMat):
