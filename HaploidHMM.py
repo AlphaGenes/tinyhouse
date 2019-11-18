@@ -36,11 +36,10 @@ def haploidHMM(individual, source_haplotypes, error, recombination_rate, thresho
         return called_genotypes
     if calling_method == 'dosages':
         dosages = getHaploidDosages(total_probs, source_haplotypes)
-        return dosages
+        individual.dosages = dosages
     if calling_method == 'sample':
         haplotype = getHaploidSample(point_estimates, recombination_rate, source_haplotypes)
         individual.imputed_haplotypes = haplotype
-        return
     if calling_method == 'viterbi':
         raise ValueError('Viterbi not yet implimented.')
 
