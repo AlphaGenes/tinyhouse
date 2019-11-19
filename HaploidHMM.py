@@ -64,34 +64,35 @@ def getHaploidSample(point_estimates, recombination_rate, source_haps):
 
 
 @jit(nopython=True)
-def haploidCallHaps(hapEst, threshold ):
+def haploidCallHaps(hapEst, threshold):
     nHaps, nLoci = hapEst.shape
-    calledHaps = np.full(nLoci, -1, dtype = np.int64) # These are haplotype ids. -1 is missing.
+    calledHaps = np.full(nLoci, -1, dtype=np.int64)  # These are haplotype ids. -1 is missing.
     for i in range(nLoci):
         maxVal = -1
         maxLoc = -1
         for j in range(nHaps):
-            if hapEst[j, i] > threshold and hapEst[j,i] > maxVal:
+            if hapEst[j, i] > threshold and hapEst[j, i] > maxVal:
                 maxLoc = j
                 maxVal = hapEst[j, i]
         calledHaps[i] = maxLoc
     return calledHaps
 
+
 @jit(nopython=True)
 def getHaploidGenotypes(calledHaps, sourceHaplotypes):
     nHaps, nLoci = sourceHaplotypes.shape
-    calledGenotypes = np.full(nLoci, 9, dtype = np.int8) # These are haplotype ids. -1 is missing.
+    calledGenotypes = np.full(nLoci, 9, dtype=np.int8) # These are haplotype ids. -1 is missing.
     for i in range(nLoci):
-        if calledHaps[i] != -1 :
-            calledGenotypes[i] = sourceHaplotypes[calledHaps[i],i]
+        if calledHaps[i] != -1:
+            calledGenotypes[i] = sourceHaplotypes[calledHaps[i], i]
     return calledGenotypes
+
 
 @jit(nopython=True, nogil=True)
 def getHaploidPointEstimates(targetHaplotype, sourceHaplotypes, error):
     nHaps, nLoci = sourceHaplotypes.shape
     pointMat = np.full((nLoci, nHaps), 1, dtype=np.float32)
 
-    ### STUFF
     for i in range(nLoci):
         if targetHaplotype[i] != 9:
             for j in range(nHaps):
