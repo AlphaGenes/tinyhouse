@@ -4,58 +4,56 @@ from . import ProbMath
 from . import NumbaUtils
 from . HaplotypeLibrary import haplotype_from_indices
 
-def diploidHMM(ind, paternalHaplotypes, maternalHaplotypes, error, recombinationRate, callingMethod = "dosages", useCalledHaps = True, includeGenoProbs = False): 
+def diploidHMM(individual, paternal_haplotypes, maternal_haplotypes, error, recombination_rate, calling_method='dosages', use_called_haps=True, include_geno_probs=False):
 
-    nLoci = len(ind.genotypes)
+    n_loci = len(individual.genotypes)
 
     # !!!! NEED TO MAKE SURE SOURCE HAPLOTYPES ARE ALL NON MISSING!!!
-    if type(paternalHaplotypes) is list or type(paternalHaplotypes) is tuple:
-        paternalHaplotypes = np.array(paternalHaplotypes)
+    if type(paternal_haplotypes) is list or type(paternal_haplotypes) is tuple:
+        paternal_haplotypes = np.array(paternal_haplotypes)
 
-    if type(maternalHaplotypes) is list or type(maternalHaplotypes) is tuple:
-        maternalHaplotypes = np.array(maternalHaplotypes)
-    
+    if type(maternal_haplotypes) is list or type(maternal_haplotypes) is tuple:
+        maternal_haplotypes = np.array(maternal_haplotypes)
+
+    # Expand error and recombinationRate to arrays as may need to have
+    # marker specific error/recombination rates.
     if type(error) is float:
-        error = np.full(nLoci, error, dtype = np.float32)
+        error = np.full(n_loci, error, dtype=np.float32)
+    if type(recombination_rate) is float:
+        recombination_rate = np.full(n_loci, recombination_rate, dtype=np.float32)
 
-    if type(recombinationRate) is float:
-        recombinationRate = np.full(nLoci, recombinationRate, dtype = np.float32)
-    # !!!! May need to have marker specific error/recombination rates.
-
-
-    ### Build haploid HMM. 
-    ###Construct penetrance values
-
-    if useCalledHaps:
-        pointEst = getDiploidPointEstimates(ind.genotypes, ind.haplotypes[0], ind.haplotypes[1], paternalHaplotypes, maternalHaplotypes, error)
+    # Construct penetrance values (point estimates)
+    if use_called_haps:
+        point_estimates = getDiploidPointEstimates(individual.genotypes, individual.haplotypes[0], individual.haplotypes[1], paternal_haplotypes, maternal_haplotypes, error)
+    elif calling_method == 'sample' or calling_method == 'dosages':
+        n_pat = len(paternal_haplotypes)
+        n_mat = len(maternal_haplotypes)
+        point_estimates = np.ones((n_loci, n_pat, n_mat), dtype=np.float32)
+        getDiploidPointEstimates_geno(individual.genotypes, paternal_haplotypes, maternal_haplotypes, error, point_estimates)
     else:
-        probs = ProbMath.getGenotypeProbabilities_ind(ind)
-        pointEst = getDiploidPointEstimates_probs(probs, paternalHaplotypes, maternalHaplotypes, error)
+        probs = ProbMath.getGenotypeProbabilities_ind(individual)
+        point_estimates = getDiploidPointEstimates_probs(probs, paternal_haplotypes, maternal_haplotypes, error)
 
-    
-    # if prior is not None:
-    #     addDiploidPrior(pointEst, prior)
+    # Do 'sample' before other 'callingMethods' as we don't need the forward-backward probs
+    if calling_method == 'sample':
+        haplotypes = getDiploidSample(point_estimates, recombination_rate, paternal_haplotypes, maternal_haplotypes,)
+        individual.imputed_haplotypes = haplotypes
+        return
 
-    ### Run forward-backward algorithm on penetrance values.
+    # Run forward-backward algorithm on penetrance values
+    total_probs = diploidForwardBackward(point_estimates, recombination_rate)
 
-    hapEst = diploidForwardBackward(pointEst, recombinationRate)
-    # for i in range(nLoci) :
-    #     print(hapEst[:,:,i])
-    # raise Exception()
+    if calling_method == 'dosages':
+        dosages = getDiploidDosages(total_probs, paternal_haplotypes, maternal_haplotypes)
+        individual.dosages = dosages
+    if calling_method == 'probabilities':
+        values = getDiploidProbabilities(total_probs, paternal_haplotypes, maternal_haplotypes)
+        individual.info = values
+    if calling_method == 'callhaps':
+        raise ValueError('callhaps not yet implimented.')
+    if calling_method == 'viterbi':
+        raise ValueError('Viterbi not yet implimented.')
 
-
-    if callingMethod == "dosages" :
-        dosages = getDiploidDosages(hapEst, paternalHaplotypes, maternalHaplotypes)
-        ind.dosages = dosages
-
-    if callingMethod == "probabilities" :
-        values = getDiploidProbabilities(hapEst, paternalHaplotypes, maternalHaplotypes)
-        ind.info = values
-
-    if callingMethod == "callhaps":
-        raise ValueError("callhaps not yet implimented.")
-    if callingMethod == "viterbi" :
-        raise ValueError("Viterbi not yet implimented.")
 
 @jit(nopython=True)
 def addDiploidPrior(pointEst, prior):
@@ -69,7 +67,7 @@ def addDiploidPrior(pointEst, prior):
 def getDiploidDosages(hapEst, paternalHaplotypes, maternalHaplotypes):
     nPat, nLoci = paternalHaplotypes.shape
     nMat, nLoci = maternalHaplotypes.shape
-    dosages = np.full(nLoci, 0, dtype = np.float32)
+    dosages = np.full(nLoci, 0, dtype=np.float32)
     for i in range(nLoci):
         for j in range(nPat):
             for k in range(nMat):
@@ -97,7 +95,14 @@ def getDiploidProbabilities(hapEst, paternalHaplotypes, maternalHaplotypes):
                     probs[3, i] += hapEst[j, k, i]
     return probs
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
+def getDiploidSample(point_estimate, recombination_rate, paternal_haps, maternal_haps):
+    """Sample a pair of haplotypes"""
+    forward_probs = diploid_forward(point_estimate, recombination_rate, in_place=True)
+    haplotypes = diploidSampleHaplotypes(forward_probs, recombination_rate, paternal_haps, maternal_haps)
+    return haplotypes
+
+@jit(nopython=True, nogil=True)
 def getDiploidPointEstimates(indGeno, indPatHap, indMatHap, paternalHaplotypes, maternalHaplotypes, error):
     nPat, nLoci = paternalHaplotypes.shape
     nMat, nLoci = maternalHaplotypes.shape
@@ -128,7 +133,7 @@ def getDiploidPointEstimates(indGeno, indPatHap, indMatHap, paternalHaplotypes, 
                             pointEst[i,j,k] = error[i]*error[i]
     return pointEst
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def getDiploidPointEstimates_geno(indGeno, paternalHaplotypes, maternalHaplotypes, error, pointEst):
     nPat, nLoci = paternalHaplotypes.shape
     nMat, nLoci = maternalHaplotypes.shape
