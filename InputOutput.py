@@ -499,3 +499,20 @@ def getFamString(ind):
 #                     f.write(tmp3)
 #                     f.write('\n')
 
+
+def print_boilerplate(name, version, description, author=None, width=80):
+    """Print software name, version, one-line description and authorship etc."""
+    if not author:
+        author = 'AlphaGenes Group (http://alphagenes.roslin.ed.ac.uk)'
+    version = f'Version: {version}'
+    box_text = ['', name, '', version, '']
+    width = 80
+    print('*' * width)
+    for line in box_text:
+        print(f'*{line:^{width-2}}*')
+    print('*' * width)
+    extra_text = ['', description, '', author]
+    for line in extra_text:
+        print(f'{line:<{width}}')
+    print('-' * width)
+    print(' ' * width)
