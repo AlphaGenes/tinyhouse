@@ -65,7 +65,7 @@ def addDiploidPrior(pointEst, prior):
                 pointEst[j, k, i] *= prior[j, k]
 
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def getDiploidDosages(hapEst, paternalHaplotypes, maternalHaplotypes):
     nPat, nLoci = paternalHaplotypes.shape
     nMat, nLoci = maternalHaplotypes.shape
@@ -254,7 +254,7 @@ def transmit(previous_estimate, recombination_rate, output, pat, mat):
             output[j, k] = previous_estimate[j, k]*e2m1 + pat[j] + mat[k] + e2
 
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def diploid_forward(point_estimate, recombination_rate, in_place=False):
     """Calculate forward probabilities combined with the point_estimates"""
 
@@ -287,7 +287,7 @@ def diploid_forward(point_estimate, recombination_rate, in_place=False):
     return combined
 
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def diploid_backward(point_estimate, recombination_rate):
     """Calculate backward probabilities"""
 
@@ -313,7 +313,7 @@ def diploid_backward(point_estimate, recombination_rate):
     return backward
 
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def diploidForwardBackward(point_estimate, recombination_rate):
     """Calculate state probabilities at each loci using the forward-backward algorithm"""
 
@@ -330,7 +330,7 @@ def diploidForwardBackward(point_estimate, recombination_rate):
     return est
 
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def diploidSampleHaplotypes(forward_probs, recombination_rate, paternal_haplotypes, maternal_haplotypes):
     """Sample a pair of paternal and maternal haplotypes from the forward and backward probability distributions
     and paternal and maternal haplotype libraries.

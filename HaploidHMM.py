@@ -44,7 +44,7 @@ def haploidHMM(individual, source_haplotypes, error, recombination_rate, thresho
         raise ValueError('Viterbi not yet implimented.')
 
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def getHaploidDosages(hap_est, source_haplotypes):
     """Calculate dosages for a single haplotype"""
     n_loci, n_haps = hap_est.shape
@@ -103,7 +103,7 @@ def getHaploidPointEstimates(targetHaplotype, sourceHaplotypes, error):
     return pointMat
 
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def haploidTransformProbs(previous, new, estimate, point_estimate, recombination_rate):
     """Transforms a probability distribution (over haplotypes, at a single locus)
     to a probability distribution at the next locus by accounting for emission probabilities
@@ -136,7 +136,7 @@ def haploidTransformProbs(previous, new, estimate, point_estimate, recombination
         previous[j] = new[j]
 
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def haploidOneSample(forward_probs, recombination_rate):
     """Sample one haplotype (an individual) from the forward and backward probability distributions
     Returns two arrays:
@@ -175,7 +175,7 @@ def haploidOneSample(forward_probs, recombination_rate):
     return sample_indices
 
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def haploidSampleHaplotype(forward_probs, haplotype_library, recombination_rate):
     """Sample one haplotype (an individual) from the forward and backward probability distributions
     Returns: a sampled haploytpe of length n_loci"""
@@ -183,7 +183,7 @@ def haploidSampleHaplotype(forward_probs, haplotype_library, recombination_rate)
     return haplotype_from_indices(indices, haplotype_library)
 
 
-@jit(nopython=True)
+@jit(nopython=True, nogil=True)
 def haploidForward(point_estimate, recombination_rate):
     """Calculate (unnomalized) forward probabilities"""
 
