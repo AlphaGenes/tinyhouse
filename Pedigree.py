@@ -93,6 +93,15 @@ class Individual(object):
         self.is_high_density = False
 
         self.genotypedFounderStatus = None #?
+    
+    def __eq__(self, other):
+        return self is other
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.idn)
 
     def subset(self, start, stop):
         # Take an individual and create an individual that just contains information on those markers.
@@ -108,9 +117,6 @@ class Individual(object):
         if self.reads is not None:
             new_ind.reads = (self.reads[0][start:stop].copy(), self.reads[1][start:stop].copy())
         return new_ind
-
-    def __hash__(self):
-        return self.idn
 
     def getPercentMissing(self):
         return np.mean(self.genotypes == 9)
