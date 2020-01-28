@@ -26,7 +26,7 @@ def diploidHMM(individual, paternal_haplotypes, maternal_haplotypes, error, reco
     # Construct penetrance values (point estimates)
     if use_called_haps:
         point_estimates = getDiploidPointEstimates(individual.genotypes, individual.haplotypes[0], individual.haplotypes[1], paternal_haplotypes, maternal_haplotypes, error)
-    elif calling_method == 'sample' or calling_method == 'dosages':
+    elif calling_method in ('sample', 'dosages', 'Viterbi'):
         n_pat = len(paternal_haplotypes)
         n_mat = len(maternal_haplotypes)
         point_estimates = np.ones((n_loci, n_pat, n_mat), dtype=np.float32)
@@ -35,11 +35,14 @@ def diploidHMM(individual, paternal_haplotypes, maternal_haplotypes, error, reco
         probs = ProbMath.getGenotypeProbabilities_ind(individual)
         point_estimates = getDiploidPointEstimates_probs(probs, paternal_haplotypes, maternal_haplotypes, error)
 
-    # Do 'sample' before other 'callingMethods' as we don't need the forward-backward probs
+    # Do 'sample' and 'Viterbi' before other 'calling_method' as we don't need the forward-backward probs
     if calling_method == 'sample':
-        haplotypes = getDiploidSample(point_estimates, recombination_rate, paternal_haplotypes, maternal_haplotypes,)
+        haplotypes = getDiploidSample(point_estimates, recombination_rate, paternal_haplotypes, maternal_haplotypes)
         individual.imputed_haplotypes = haplotypes
         return
+    if calling_method == 'Viterbi':
+        haplotypes = get_viterbi(point_estimates, recombination_rate, paternal_haplotypes, maternal_haplotypes)
+        individual.imputed_haplotypes = haplotypes
 
     # Run forward-backward algorithm on penetrance values
     total_probs = diploidForwardBackward(point_estimates, recombination_rate)
@@ -52,8 +55,6 @@ def diploidHMM(individual, paternal_haplotypes, maternal_haplotypes, error, reco
         individual.info = values
     if calling_method == 'callhaps':
         raise ValueError('callhaps not yet implimented.')
-    if calling_method == 'viterbi':
-        raise ValueError('Viterbi not yet implimented.')
 
 
 @jit(nopython=True)
@@ -104,6 +105,20 @@ def getDiploidSample(point_estimate, recombination_rate, paternal_haps, maternal
     """Sample a pair of haplotypes"""
     forward_probs = diploid_forward(point_estimate, recombination_rate, in_place=True)
     haplotypes = diploidSampleHaplotypes(forward_probs, recombination_rate, paternal_haps, maternal_haps)
+    return haplotypes
+
+
+@jit(nopython=True, nogil=True)
+def get_viterbi(point_estimates, recombination_rate, paternal_haplotypes, maternal_haplotypes):
+    """Get most likely haplotype pair using the Viterbi algorithm"""
+    n_loci = point_estimates.shape[0]
+    haplotypes = np.full((2, n_loci), 9, dtype=np.int8)
+
+    forward_probs = diploid_forward(point_estimates, recombination_rate)
+    paternal_indices, maternal_indices = diploid_viterbi(forward_probs, recombination_rate)
+    haplotypes[0] = haplotype_from_indices(paternal_indices, paternal_haplotypes)
+    haplotypes[1] = haplotype_from_indices(maternal_indices, maternal_haplotypes)
+
     return haplotypes
 
 
@@ -374,6 +389,43 @@ def diploidOneSample(forward_probs, recombination_rate):
 
     # Last sample (at the first locus)
     j, k = NumbaUtils.multinomial_sample_2d(pvals=pvals)
+    paternal_indices[0] = j
+    maternal_indices[0] = k
+
+    return paternal_indices, maternal_indices
+
+
+@jit(nopython=True, nogil=True)
+def diploid_viterbi(forward_probs, recombination_rate):
+    """Determine the most likely haplotype pair (paternal and maternal) using the Viterbi algorithm
+    Returns:
+      paternal_indices, maternal_indices - arrays of sampled haplotype indices"""
+
+    n_loci, n_pat, n_mat = forward_probs.shape
+
+    # pvals is the most ikely probability distribution at one locus
+    pvals = np.empty((n_pat, n_mat), dtype=np.float32)
+    paternal_indices = np.empty(n_loci, dtype=np.int64)
+    maternal_indices = np.empty(n_loci, dtype=np.int64)
+
+    # Backwards algorithm
+    for i in range(n_loci-1, -1, -1): # zero indexed then minus one since we skip the boundary
+        # Sample at this locus
+        if i == n_loci-1:
+            pvals[:, :] = forward_probs[i, :, :]
+        else:
+            combine_backward_sampled_value(forward_probs[i, :, :], paternal_indices[i+1], maternal_indices[i+1], recombination_rate[i+1], pvals[:, :])
+
+        idx = np.argmax(pvals)
+        j, k = idx//n_mat, idx%n_mat
+
+        paternal_indices[i] = j
+        maternal_indices[i] = k
+
+    # Last sample (at the first locus)
+    idx = np.argmax(pvals)
+    j, k = idx//n_mat, idx%n_mat
+
     paternal_indices[0] = j
     maternal_indices[0] = k
 
