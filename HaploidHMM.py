@@ -40,8 +40,9 @@ def haploidHMM(individual, source_haplotypes, error, recombination_rate, thresho
     if calling_method == 'sample':
         haplotype = getHaploidSample(point_estimates, recombination_rate, source_haplotypes)
         individual.imputed_haplotypes = haplotype
-    if calling_method == 'viterbi':
-        raise ValueError('Viterbi not yet implimented.')
+    if calling_method == 'Viterbi':
+        haplotype = get_viterbi(point_estimates, recombination_rate, source_haplotypes)
+        individual.imputed_haplotypes = haplotype
 
 
 @jit(nopython=True, nogil=True)
@@ -61,6 +62,14 @@ def getHaploidSample(point_estimates, recombination_rate, source_haps):
     forward_probs = haploidForward(point_estimates, recombination_rate)
     haplotype = haploidSampleHaplotype(forward_probs, source_haps, recombination_rate)
     return haplotype
+
+
+@jit(nopython=True, nogil=True)
+def get_viterbi(point_estimates, recombination_rate, haplotype_library):
+    """Get most likely haplotype using the Viterbi algorithm"""
+    forward_probs = haploidForward(point_estimates, recombination_rate)
+    indices = haploid_viterbi(forward_probs, recombination_rate)
+    return haplotype_from_indices(indices, haplotype_library)
 
 
 @jit(nopython=True)
@@ -173,6 +182,44 @@ def haploidOneSample(forward_probs, recombination_rate):
     sample_indices[0] = j
 
     return sample_indices
+
+
+@jit(nopython=True, nogil=True)
+def haploid_viterbi(forward_probs, recombination_rate):
+    """Find the most likely haplotype according to the The Viterbi algorithm
+    Returns:
+      indices   array of indices of haplotypes in the haplotype library at each locus
+                e.g. an individual composed of haplotypes 13 and 42 with 8 loci:
+                [42, 42, 42, 42, 42, 13, 13, 13]"""
+
+    est = forward_probs.copy()  # copy so that forward_probs is not modified
+    n_loci, n_haps = forward_probs.shape
+    prev = np.ones(n_haps, dtype=np.float32)
+    new = np.empty(n_haps, dtype=np.float32)
+
+    # Most likely probability distribution at one locus
+    sampled_probs = np.empty(n_haps, dtype=np.float32)
+    indices = np.empty(n_loci, dtype=np.int64)
+
+    # Backwards algorithm
+    for i in range(n_loci-2, -1, -1): # zero indexed then minus one since we skip the boundary
+        # Choose the most likely state (i.e. max probability) at this locus
+        j = np.argmax(est[i+1, :])
+
+        sampled_probs[:] = 0
+        sampled_probs[j] = 1
+        indices[i+1] = j
+
+        # Get estimate at this locus using the most likely distribution
+        # (instead of the point estimates/emission probabilities)
+        haploidTransformProbs(prev, new, est[i, :], sampled_probs, recombination_rate[i+1])
+        # No need to normalise at this locus as argmax() does not depend on normalisation
+
+    # Most likely state at the first locus
+    j = np.argmax(est[0, :])
+    indices[0] = j
+
+    return indices
 
 
 @jit(nopython=True, nogil=True)
