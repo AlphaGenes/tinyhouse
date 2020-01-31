@@ -191,10 +191,14 @@ def parseArgs(program, parser = None, no_args = False):
 
     # We want start/stop snp to be in python format (i.e. 0 to n-1).
     # Input values are between 1 to n.
-    if args.startsnp is not None:
-        args.startsnp -= 1
-        args.stopsnp -= 1
-    ##Add any necessary code to check args here.
+    try:
+        if args.startsnp is not None:
+            args.startsnp -= 1
+            args.stopsnp -= 1
+        ##Add any necessary code to check args here.
+    except AttributeError as error:
+        pass
+
     return args
 
 def rawParseArgs(program, parser = None, no_args = False) :
