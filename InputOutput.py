@@ -191,10 +191,14 @@ def parseArgs(program, parser = None, no_args = False):
 
     # We want start/stop snp to be in python format (i.e. 0 to n-1).
     # Input values are between 1 to n.
-    if args.startsnp is not None:
-        args.startsnp -= 1
-        args.stopsnp -= 1
-    ##Add any necessary code to check args here.
+    try:
+        if args.startsnp is not None:
+            args.startsnp -= 1
+            args.stopsnp -= 1
+        ##Add any necessary code to check args here.
+    except AttributeError as error:
+        pass
+
     return args
 
 def rawParseArgs(program, parser = None, no_args = False) :
@@ -245,9 +249,14 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
         setNumbaSeeds(args.seed)
 
 
+    startsnp = getattr(args, "startsnp", None)
+    stopsnp = getattr(args, "stopsnp", None)
+
     pedigree.args = args
     pedigreeReadIn = False
-    if args.pedigree is not None: 
+
+    pedigree_args = getattr(args, "pedigree", None)   
+    if pedigree_args is not None: 
         pedigreeReadIn = True
         for ped in args.pedigree:
             pedigree.readInPedigree(ped)
@@ -257,24 +266,24 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
     genotypes = getattr(args, "genotypes", None)    
     if genotypes is not None: 
         for geno in args.genotypes:
-            pedigree.readInGenotypes(geno, args.startsnp, args.stopsnp)
+            pedigree.readInGenotypes(geno, startsnp, stopsnp)
     
     reference = getattr(args, "reference", None)    
     if reference is not None: 
         for ref in args.reference:
-            pedigree.readInReferencePanel(ref, args.startsnp, args.stopsnp)
+            pedigree.readInReferencePanel(ref, startsnp, stopsnp)
     
     seqfile = getattr(args, "seqfile", None)    
     if seqfile is not None: 
         for seq in args.seqfile:
-            pedigree.readInSequence(seq, args.startsnp, args.stopsnp)
+            pedigree.readInSequence(seq, startsnp, stopsnp)
     
     phasefile = getattr(args, "phasefile", None)    
     if phasefile is not None: 
         if args.program == "AlphaPeel":
             print("Use of an external phase file is not currently supported. Phase information will be translated to genotype probabilities. If absolutely necessary use a penetrance file instead.") 
         for phase in args.phasefile:
-            pedigree.readInPhase(phase, args.startsnp, args.stopsnp)
+            pedigree.readInPhase(phase, startsnp, stopsnp)
     
     bfile = getattr(args, "bfile", None)
     if bfile is not None: 
@@ -283,7 +292,7 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
             for plink in args.bfile:
                 if pedigreeReadIn == True:
                     print(f"Pedigree file read in from -pedigree option. Reading in binary plink file {plink}. Pedigree information in the .fam file will be ignored.")
-                readInGenotypesPlink(pedigree, plink, args.startsnp, args.stopsnp, pedigreeReadIn)
+                readInGenotypesPlink(pedigree, plink, startsnp, stopsnp, pedigreeReadIn)
         else:
             warnings.warn("The module alphaplinkpython was not found. Plink files cannot be read in and will be ignored.")
 

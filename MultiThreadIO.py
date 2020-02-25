@@ -13,7 +13,7 @@ def writeLines(fileName, data_list, fmt):
     print(f"Writing results to: {fileName}")
     try:
         iothreads = InputOutput.args.iothreads
-    except:
+    except AttributeError as error:
         iothreads = 1
 
     with open(fileName, 'w+') as f:
@@ -65,7 +65,10 @@ def process_input_line(line, startsnp, stopsnp, dtype):
 def readLines(fileName, startsnp, stopsnp, dtype):
     # print(f"Reading in file: {fileName}")
 
-    iothreads = InputOutput.args.iothreads
+    try:
+        iothreads = InputOutput.args.iothreads
+    except AttributeError as error:
+        iothreads = 1
 
     output = []
     with open(fileName) as f:
