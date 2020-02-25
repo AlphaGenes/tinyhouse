@@ -166,8 +166,9 @@ def get_multithread_options():
 
 def get_probability_options():
     parse_dictionary = dict()
-    parse_dictionary["error"] = lambda parser: parser.add_argument('-error', default=0.01, required=False, type=float, help='Genotyping error rate. [Default 0.01]')
-    parse_dictionary["seqerror"] = lambda parser: parser.add_argument('-seqerror', default=0.001, required=False, type=float, help='Assumed sequencing error rate. [Default 0.001]')
+    parse_dictionary["error"] = lambda parser: parser.add_argument('-error', default=0.01, required=False, type=float, help='Genotyping error rate. Default: 0.01.')
+    parse_dictionary["seqerror"] = lambda parser: parser.add_argument('-seqerror', default=0.001, required=False, type=float, help='Assumed sequencing error rate. Default: 0.001.')
+    parse_dictionary["recombination"] = lambda parser: parser.add_argument('-recomb', default=1, required=False, type=float, help='Recombination rate per chromosome. Default: 1.')
     return parse_dictionary
 
 
