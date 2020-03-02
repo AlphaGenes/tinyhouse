@@ -43,7 +43,10 @@ def getParser(program) :
         core_impute_parser.add_argument('-binaryoutput', action='store_true', required=False, help='Flag to write out the genotypes as a binary plink output.')
 
     if program in ["AlphaPeel", "AlphaAssign", "AlphaMGS", "AlphaCall"]:
-        add_genotype_probability_arguments(praser)
+        probability_parser = parser.add_argument_group("Genotype probability arguments")
+        add_arguments_from_dictionary(probability_parser, get_probability_options(), None)
+
+
         
     if program in ["longreads"]:
         longread_parser = parser.add_argument_group("Long read arguments")
