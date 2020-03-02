@@ -57,7 +57,7 @@ def getParser(program) :
 
         peeling_parser.add_argument('-ncycles',default=5, required=False, type=int, help='Number of peeling cycles. Default: 5.')
         peeling_parser.add_argument('-maxthreads',default=1, required=False, type=int, help='Number of threads to use. Default: 1.')
-        peeling_parser.add_argument('-length', default=1.0, required=False, type=float, help='Estimated length of the chromosome in Morgansa. [Default 1.00]')
+        peeling_parser.add_argument('-length', default=1.0, required=False, type=float, help='Estimated length of the chromosome in Morgans. [Default 1.00]')
         peeling_parser.add_argument('-penetrance',   default=None, required=False, type=str, nargs="*", help='An optional external penetrance file. This will overwrite the default penetrance values.')
 
         peeling_control_parser = parser.add_argument_group("Peeling control arguments")
@@ -76,14 +76,14 @@ def getParser(program) :
 
         output_parser = parser.add_argument_group("Peeling output options")
         
-        output_parser.add_argument('-no_dosages', action='store_true', required=False, help='Flag to surpress the dosage files.')
-        output_parser.add_argument('-no_seg', action='store_true', required=False, help='Flag to surpress the segregation files (e.g. when running for chip imputation and not hybrid peeling).')
-        output_parser.add_argument('-no_params', action='store_true', required=False, help='Flag to surpress writing the paramater files.')
+        output_parser.add_argument('-no_dosages', action='store_true', required=False, help='Flag to suppress the dosage files.')
+        output_parser.add_argument('-no_seg', action='store_true', required=False, help='Flag to suppress the segregation files (e.g. when running for chip imputation and not hybrid peeling).')
+        output_parser.add_argument('-no_params', action='store_true', required=False, help='Flag to suppress writing the parameter files.')
 
         output_parser.add_argument('-haps', action='store_true', required=False, help='Flag to enable writing out the genotype probabilities.')
-        output_parser.add_argument('-calling_threshold', default=None, required=False, type=float, nargs="*", help='Genotype calling threshold(s). Multiple space seperated vallues allowed. Use. .3 for best guess genotype.')
-        output_parser.add_argument('-binary_call_files', action='store_true', required=False, help='Flag to write out the called genotype files as a binary plink output [Not yet implimented].')
-
+        output_parser.add_argument('-calling_threshold', default=None, required=False, type=float, nargs="*", help='Genotype calling threshold(s). Multiple space separated values allowed. Use. .3 for best guess genotype.')
+        output_parser.add_argument('-binary_call_files', action='store_true', required=False, help='Flag to write out the called genotype files as a binary plink output [Not yet implemented].')
+ 
     if program == "AlphaPlantImpute" :
         core_plant_parser = parser.add_argument_group("Mandatory arguments")
         core_plant_parser.add_argument('-plantinfo', default=None, required=False, type=str, nargs="*", help='A plant info file.')
