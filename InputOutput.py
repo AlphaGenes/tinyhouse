@@ -42,7 +42,7 @@ def getParser(program) :
         core_impute_parser.add_argument('-maxthreads',default=1, required=False, type=int, help='Number of threads to use. Default: 1.')
         core_impute_parser.add_argument('-binaryoutput', action='store_true', required=False, help='Flag to write out the genotypes as a binary plink output.')
 
-    if program in ["AlphaPeel", "AlphaAssign", "AlphaMGS", "AlphaCall"]:
+    if program in ["AlphaPeel", "AlphaMGS", "AlphaCall"]:
         probability_parser = parser.add_argument_group("Genotype probability arguments")
         add_arguments_from_dictionary(probability_parser, get_probability_options(), None)
 
@@ -91,31 +91,7 @@ def getParser(program) :
         core_plant_parser = parser.add_argument_group("Mandatory arguments")
         core_plant_parser.add_argument('-plantinfo', default=None, required=False, type=str, nargs="*", help='A plant info file.')
 
-    
-    if program == "AlphaAssign" :
-        core_assign_parser = parser.add_argument_group("Core assignement arguments")
-
-        core_assign_parser.add_argument('-potentialsires', default=None, required=False, type=str, help='A list of potential sires for each individual.')
-        core_assign_parser.add_argument('-potentialdams', default=None, required=False, type=str, help='A list of potential dams for each individual.')
-        core_assign_parser.add_argument('-checkpedigree', action='store_true', required=False, help='Flag to check the pre-existing pedigree.')
-        core_assign_parser.add_argument('-assignall',action='store_true', required=False, help='Flag to force the algorithm to assign a sire. Does not effect the -checkpedigree option. Recomended only if the true sire/dam is guaranteed to be in the list of putative parents.')
         
-
-
-        assign_parser = parser.add_argument_group("Additional assignment arguments")
-        #Additional options.
-
-        assign_parser.add_argument('-snplist',default=None, required=False, type=str, help='An optional list of SNPs to use for parentage assignement and pedigree reconstruction. Only works if a bfile is included.')
-        assign_parser.add_argument('-subsample',default="all", required=False, type=str, help='How should markers be subsetted? [all, coverage]')
-        
-        assign_parser.add_argument('-usemaf', action='store_true', required=False, help='A flag to use the minor allele frequency when constructing genotype estimates for the sire and maternal grandsire. Not recomended for small input pedigrees.')
-
-        selection_parser = parser.add_argument_group("Arguments to choose how sires and dams are assigned")
-        selection_parser.add_argument('-runtype',default="both", required=False, type=str, help='opp, likelihood, both')
-        selection_parser.add_argument('-add_threshold',default=9, required=False, type=float, help='Assignement score threshold for adding a new individual as a parent')
-        selection_parser.add_argument('-remove_threshold',default=-9, required=False, type=float, help='Assignement score threshold for removing an existing parent')
-        selection_parser.add_argument('-p_threshold',default=-9, required=False, type=float, help='Negative log-pvalue threshold for removing parents via opposing homozygotes')
-    
     if program == "AlphaMGS" :
         core_assign_parser = parser.add_argument_group("Core assignement arguments")
         core_assign_parser.add_argument('-potentialgrandsires', default=None, required=False, type=str, help='A list of potential dams for each individual.')
