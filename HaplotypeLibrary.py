@@ -5,6 +5,30 @@ from numba import njit, jit
 def profile(x):
     return x
 
+# Helper functions
+def slices(start, length, n):
+    """Return `n` slices starting at `start` of length `length`"""
+    return [slice(i, i+length) for i in range(start, length*n + start, length)]
+
+def bin_slices(l, n):
+    """Return a list of slice() objects that split l items into n bins
+    The first l%n bins are length l//n+1; the remaining n-l%n bins are length l//n
+    Similar to np.array_split()"""
+    return slices(0, l//n+1, l%n) + slices((l//n+1)*(l%n), l//n, n-l%n)
+
+def topk_indices(genotype, haplotypes, n_topk):
+    """Return top-k haplotype indices with fewest opposite homozygous markers compared to genotype"""
+    # Note: can probably speed-up with
+    # opposite_homozygous = ((g==0) & (h==1)) | ((g==2) & (h==0))
+    homozygous = (genotype == 0) | (genotype == 2)  # note: this purposefully ignores missing loci
+    if np.sum(homozygous) == 0:
+        print('Warning: genotype contains no homozygous markers')
+    opposite_homozygous = (genotype//2 != haplotypes) & homozygous
+    fraction_opposite_homozygous = np.sum(opposite_homozygous, axis=1) / np.sum(homozygous)
+    # Top k indices
+    return np.argpartition(fraction_opposite_homozygous, n_topk)[:n_topk]
+
+
 class HaplotypeLibrary(object):
     """A library of haplotypes
     Each haplotype can have an identifier (any Python object, but typically a str or int)
@@ -80,6 +104,34 @@ class HaplotypeLibrary(object):
         sampled_indices = np.sort(np.random.choice(len(self), size=n_haplotypes, replace=False))
         return self._haplotypes[sampled_indices]
 
+
+    def sample_best_individuals(self, n_haplotypes, genotype, exclude_identifiers=None):
+        """Sample haplotypes that 'closely match' genotype `genotype`"""
+        n_bins = 5
+        if not self._frozen:
+            raise RuntimeError('Cannot sample from an unfrozen library')
+        if n_haplotypes > len(self):
+            return self._haplotypes
+
+        # Get top-k in a number of marker bins
+        n_topk = n_haplotypes  # unnecessary variable redifinition
+        indices = np.empty((n_topk, n_bins), dtype=np.int64)
+        for i, s in enumerate(bin_slices(self._n_loci, n_bins)):
+            indices[:, i] = topk_indices(genotype[s], self._haplotypes[:, s], n_topk)
+
+        # Get top n_haplotypes across the bins excluding any in exclude_ifentifiers
+        sampled_indices = set()
+        exclude_indices = set(self._indices(exclude_identifiers))
+        for idx in indices.flatten():
+            if idx not in exclude_indices:
+                sampled_indices.add(idx)
+            if len(sampled_indices) >= n_topk:
+                break
+        sampled_indices = list(sampled_indices)
+
+        return self._haplotypes[sampled_indices]
+
+
     def exclude_identifiers_and_sample(self, identifiers, n_haplotypes):
         """Return a NumPy array of (n_haplotypes) randomly sampled haplotypes
         excluding specified identifiers.
@@ -111,6 +163,9 @@ class HaplotypeLibrary(object):
 
     def _indices(self, identifier):
         """Get row indices associated with an identifier. These can be used for fancy indexing"""
+        # Return empty list if identifier == None
+        if not identifier:
+            return list()
         if not self._frozen:
             raise RuntimeError("Cannot get indices from an unfrozen library")
         if identifier not in self._identifiers:
