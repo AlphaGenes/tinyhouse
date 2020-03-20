@@ -43,7 +43,7 @@ def diploidHMM(individual, paternal_haplotypes, maternal_haplotypes, error, reco
     if calling_method == 'Viterbi':
         haplotypes = get_viterbi(point_estimates, recombination_rate, paternal_haplotypes, maternal_haplotypes)
         individual.imputed_haplotypes = haplotypes
-
+        return
     # Run forward-backward algorithm on penetrance values
     total_probs = diploidForwardBackward(point_estimates, recombination_rate)
 
