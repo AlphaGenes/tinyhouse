@@ -1,5 +1,6 @@
 from numba import jit
 import numpy as np
+import collections
 
 def getGenotypesFromMaf(maf) :
     nLoci = len(maf)
@@ -124,29 +125,73 @@ def log_norm_1D(mat):
     
     return mat - (np.log(log_exp_sum) + maxVal)
 
-   
 
-def call_genotype_probs(ind, geno_probs, calling_threshold = 0.1, set_genotypes = False, set_dosages = False, set_haplotypes = False) :
-    # Genotype ordering: aa, aA, Aa, AA. First loci is haplotypes[0]. Second loci is haplotypes[1].
-    geno_probs = geno_probs/np.sum(geno_probs, axis = 0)
+def set_from_genotype_probs(ind, geno_probs = None, calling_threshold = 0.1, set_genotypes = False, set_dosages = False, set_haplotypes = False) :
 
-    if set_dosages:
+    # Check diploid geno_probs; not sure what to do for haploid except assume inbred?
+    if geno_probs.shape[0] == 2:
+
+        geno_probs = geno_probs/np.sum(geno_probs, axis = 0)
+        called_values = call_genotype_probs(geno_probs, calling_threshold)
+
+        # Assuming the individual is haploid
+
+        if set_dosages:
+            if ind.dosages is None:
+                ind.dosages = called_values.dosages.copy()
+            ind.dosages[:] = 2*called_values.dosages
+
+        if set_genotypes:
+            ind.genotypes[:] = 2*called_values.haplotype 
+            ind.genotypes[called_values.haplotype == 9] = 9 # Correctly set missing loci.
+
+        if set_haplotypes:
+            ind.haplotypes[0][:] = called_values.haplotype
+            ind.haplotypes[1][:] = called_values.haplotype
+
+    if geno_probs.shape[0] == 4:
+        geno_probs = geno_probs/np.sum(geno_probs, axis = 0)
+        called_values = call_genotype_probs(geno_probs, calling_threshold)
+
+        if set_dosages:
+            if ind.dosages is None:
+                ind.dosages = called_values.dosages.copy()
+            ind.dosages[:] = called_values.dosages
+
+        if set_genotypes:
+            ind.genotypes[:] = called_values.genotypes
+
+        if set_haplotypes:
+            ind.haplotypes[0][:] = called_values.haplotypes[0]
+            ind.haplotypes[1][:] = called_values.haplotypes[1]
+
+
+def call_genotype_probs(geno_probs, calling_threshold = 0.1) :
+
+    if geno_probs.shape[0] == 2:
+        # Haploid
+        HaploidValues = collections.namedtuple("HaploidValues", ["haplotype", "dosages"])
+        dosages = geno_probs[1,:].copy()
+        haplotype = call_matrix(geno_probs, calling_threshold)
+
+        return HaploidValues(dosages = dosages, haplotype = haplotype)
+
+    if geno_probs.shape[0] == 2:
+        # Haploid
+        DiploidValues = collections.namedtuple("DiploidValues", ["genotypes", "haplotypes", "dosages"])
+
         dosages = geno_probs[1,:] + geno_probs[2,:] + 2*geno_probs[3,:]
-        ind.dosages = dosages
 
-    if set_genotypes:
         # Collapse the two heterozygous states into one.
         collapsed_hets = np.array([geno_probs[0,:], geno_probs[1,:] + geno_probs[2,:], geno_probs[3,:]], dtype=np.float32)
-        ind.genotypes[:] = call_matrix(collapsed_hets, calling_threshold)
+        genotypes = call_matrix(collapsed_hets, calling_threshold)
 
-    if set_haplotypes:
         # aa + aA, Aa + AA
         haplotype_0 = np.array([geno_probs[0,:] + geno_probs[1,:], geno_probs[2,:] + geno_probs[3,:]], dtype=np.float32)
-        ind.haplotypes[0][:] = call_matrix(haplotype_0, calling_threshold)
-
-        # aa + Aa, aA + AA.
         haplotype_1 = np.array([geno_probs[0,:] + geno_probs[2,:], geno_probs[1,:] + geno_probs[3,:]], dtype=np.float32)
-        ind.haplotypes[1][:] = call_matrix(haplotype_1, calling_threshold)
+        haplotypes = (call_matrix(haplotype_0, calling_threshold), call_matrix(haplotype_1, calling_threshold))
+        
+        return DiploidValues(dosages = dosages, haplotypes = haplotypes, genotypes = genotypes)
 
 
 def call_matrix(matrix, threshold):
