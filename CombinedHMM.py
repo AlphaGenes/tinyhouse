@@ -48,13 +48,16 @@ class HaploidMarkovModel :
             total_probs = self.apply_smoothing(point_estimates, self.recombination_rate)
             genotype_probabilities = self.calculate_genotype_probabilities(total_probs, **kwargs)
 
-        if algorithm == "viterbi":
+        elif algorithm == "viterbi":
             total_probs = self.apply_viterbi(point_estimates, self.recombination_rate)
             genotype_probabilities = self.calculate_genotype_probabilities(total_probs, **kwargs)
         
-        if algorithm == "sample":
+        elif algorithm == "sample":
             total_probs = self.apply_sampling(point_estimates, self.recombination_rate)
             genotype_probabilities = self.calculate_genotype_probabilities(total_probs, **kwargs)
+
+        else:
+            print(f"Valid alrogithm option not given: {alrogithm}")
 
         return genotype_probabilities
 
@@ -65,7 +68,6 @@ class HaploidMarkovModel :
 
     def get_point_estimates(self, individual, haplotype_library, **kwargs) :
         called_haplotypes = haplotype_library.get_called_haplotypes()
-        haplotype_dosages = haplotype_library.get_haplotypes()
         mask = self.get_mask(called_haplotypes)     
         point_estimates = self.njit_get_point_estimates(individual.genotypes, called_haplotypes, self.error, mask)
         return point_estimates
@@ -155,25 +157,35 @@ class HaploidMarkovModel :
 
             # First index.
             selected_index = selection_function(forward_and_point_estimate[-1].ravel())
-            output[-1].ravel()[selected_index] = 1 # Set the output value at the selected_index to 1.
+            output[- 1].ravel()[selected_index] = 1 # Set the output value at the selected_index to 1.
 
+            # print(forward_and_point_estimate[n_loci - 1])
+            # print(selected_index)
+            # print(output[- 1])
 
             # Always sample backward (for tradition mostly).
             locus_estimate = np.full(point_estimate[0].shape, 0, dtype = np.float32)
             matrix_ones = np.full(point_estimate[0].shape, 1, dtype = np.float32)
 
-            start = n_loci - 3
+            start = n_loci - 2
             stop = -1
             step = -1
 
             for i in range(start, stop, step):
                 # Pass along sampled value at the locus.
                 transmission(output[i-step,:], matrix_ones, recombination_rate[i], locus_estimate)
-                
                 # Combine forward_estimate with backward_estimate
                 locus_estimate *= forward_and_point_estimate[i,:]
                 selected_index = selection_function(locus_estimate.ravel())
                 output[i].ravel()[selected_index] = 1 # Set the output value at the selected_index to 1.
+
+                # if i > n_loci - 40:
+                # if True:
+                #     print("")
+                #     print(output[i-step,:])
+                #     print(forward_and_point_estimate[i,:])
+                #     print(locus_estimate)
+                #     print(selected_index)
 
             # Return probabilities
             return output
@@ -208,38 +220,55 @@ class DiploidMarkovModel(HaploidMarkovModel) :
     def __init__(self, n_loci, error, recombination_rate = None):
         HaploidMarkovModel.__init__(self, n_loci, error, recombination_rate)
 
+    def extract_reference_panels(self, haplotype_library = None, maternal_haplotype_library = None, paternal_haplotype_library = None) :
+        if maternal_haplotype_library is not None and paternal_haplotype_library is not None:
+            seperate_reference_panels = True
+            return paternal_haplotype_library, maternal_haplotype_library, seperate_reference_panels
 
-    def get_genotype_probabilities(self, individual, paternal_haplotype_library, maternal_haplotype_library = None):
+        else:
+            seperate_reference_panels = False
+            return haplotype_library, haplotype_library, seperate_reference_panels
 
-        point_estimates = self.get_point_estimates(individual, haplotype_library)
-        total_probs = self.apply_smoothing(point_estimates, self.recombination_rate)
-        genotype_probabilities = self.calculate_genotype_probabilities(total_probs, paternal_haplotype_dosages, maternal_haplotype_dosages, seperate_reference_panels)
-        
-        return genotype_probabilities
-
-    def get_point_estimates(self):
-        seperate_reference_panels = (maternal_haplotype_library is None)
-
-        if maternal_haplotype_library is None:
-            maternal_haplotype_library = paternal_haplotype_library
+    def get_point_estimates(self, individual, **kwargs):
+        paternal_haplotype_library, maternal_haplotype_library, seperate_reference_panels = self.extract_reference_panels(**kwargs)
 
         paternal_called_haplotypes = paternal_haplotype_library.get_called_haplotypes()
-        paternal_haplotype_dosages = paternal_haplotype_library.get_haplotypes()
-
         maternal_called_haplotypes = maternal_haplotype_library.get_called_haplotypes()
-        maternal_haplotype_dosages = maternal_haplotype_library.get_haplotypes()
-
+ 
         mask = self.get_mask(paternal_called_haplotypes) & self.get_mask(maternal_called_haplotypes) 
-        
-        point_estimates = self.get_point_estimates(individual.genotypes, paternal_called_haplotypes, maternal_called_haplotypes, self.error, mask)
-
+        return self.njit_get_point_estimates(individual.genotypes, paternal_called_haplotypes, maternal_called_haplotypes, self.error, mask)
 
     @staticmethod
     @jit(nopython=True, nogil=True)
-    def calculate_genotype_probabilities(total_probs, paternal_haplotypes, maternal_haplotypes, seperate_reference_panels) :
+    def njit_get_point_estimates(indGeno, paternalHaplotypes, maternalHaplotypes, error, mask):
+        nPat, nLoci = paternalHaplotypes.shape
+        nMat, nLoci = maternalHaplotypes.shape
+
+        point_estimates = np.full((nLoci, nPat, nMat), 1, dtype = np.float32)
+
+        for i in range(nLoci):
+            if indGeno[i] != 9 and mask[i]:
+                for j in range(nPat):
+                    for k in range(nMat):
+                        sourceGeno = paternalHaplotypes[j, i] + maternalHaplotypes[k, i]
+                        if sourceGeno == indGeno[i]:
+                            point_estimates[i, j, k] = 1-error[i]
+                        else:
+                            point_estimates[i, j, k] = error[i]
+
+        return point_estimates
+
+
+    def calculate_genotype_probabilities(self, total_probs, haplotype_library = None, maternal_haplotype_library= None, paternal_haplotype_library= None, **kwargs):
+        paternal_haplotype_library, maternal_haplotype_library, seperate_reference_panels = self.extract_reference_panels(haplotype_library, maternal_haplotype_library, paternal_haplotype_library)
+        return self.njit_calculate_genotype_probabilities(total_probs, paternal_haplotype_library.get_haplotypes(), maternal_haplotype_library.get_haplotypes(), seperate_reference_panels)
+
+    @staticmethod
+    @jit(nopython=True, nogil=True)
+    def njit_calculate_genotype_probabilities(total_probs, paternal_haplotypes, maternal_haplotypes, seperate_reference_panels) :
         n_pat, n_loci = paternal_haplotypes.shape
         n_mat, n_loci = maternal_haplotypes.shape
-        geno_probs = np.full((4, n_loci), 1, dtype = np.float32)
+        geno_probs = np.full((4, n_loci), 0.00001, dtype = np.float32)
 
         for i in range(n_loci):
             for j in range(n_pat):
@@ -270,25 +299,6 @@ class DiploidMarkovModel(HaploidMarkovModel) :
         return geno_probs
 
 
-    @staticmethod
-    @jit(nopython=True, nogil=True)
-    def njit_get_point_estimates(indGeno, paternalHaplotypes, maternalHaplotypes, error, mask):
-        nPat, nLoci = paternalHaplotypes.shape
-        nMat, nLoci = maternalHaplotypes.shape
-
-        point_estimates = np.full((nLoci, nPat, nMat), 1, dtype = np.float32)
-
-        for i in range(nLoci):
-            if indGeno[i] != 9 and mask[i]:
-                for j in range(nPat):
-                    for k in range(nMat):
-                        sourceGeno = paternalHaplotypes[j, i] + maternalHaplotypes[k, i]
-                        if sourceGeno == indGeno[i]:
-                            point_estimates[i, j, k] = 1-error[i]
-                        else:
-                            point_estimates[i, j, k] = error[i]
-
-        return point_estimates
     
     
     @staticmethod
