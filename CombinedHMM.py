@@ -15,7 +15,7 @@ class HaploidMarkovModel :
 
         self.directional_smoothing = self.create_directional_smoothing()
         self.apply_smoothing = self.create_apply_smoothing()
-        self.apply_viterbi = self.create_sampling_algorithm(np.argmax)
+        self.apply_viterbi = self.create_viterbi_algorithm()
         self.apply_sampling = self.create_sampling_algorithm(NumbaUtils.multinomial_sample)
 
     def get_mask(self, called_haplotypes):
@@ -159,10 +159,6 @@ class HaploidMarkovModel :
             selected_index = selection_function(forward_and_point_estimate[-1].ravel())
             output[- 1].ravel()[selected_index] = 1 # Set the output value at the selected_index to 1.
 
-            # print(forward_and_point_estimate[n_loci - 1])
-            # print(selected_index)
-            # print(output[- 1])
-
             # Always sample backward (for tradition mostly).
             locus_estimate = np.full(point_estimate[0].shape, 0, dtype = np.float32)
             matrix_ones = np.full(point_estimate[0].shape, 1, dtype = np.float32)
@@ -179,18 +175,69 @@ class HaploidMarkovModel :
                 selected_index = selection_function(locus_estimate.ravel())
                 output[i].ravel()[selected_index] = 1 # Set the output value at the selected_index to 1.
 
-                # if i > n_loci - 40:
-                # if True:
-                #     print("")
-                #     print(output[i-step,:])
-                #     print(forward_and_point_estimate[i,:])
-                #     print(locus_estimate)
-                #     print(selected_index)
-
             # Return probabilities
             return output
 
         return sample_path
+
+
+    def create_viterbi_algorithm(self):
+
+        maximum_likelihood_step = self.maximum_likelihood_step
+        @jit(nopython=True, nogil=True)
+        def viterbi_path(point_estimate, recombination_rate):
+            """Calculate normalized state probabilities at each loci using the forward-backward algorithm"""
+
+            # Right now using a matrix output; will improve later.
+            n_loci = point_estimate.shape[0]
+
+            path_score = np.full(point_estimate.shape, 0, dtype = np.float32)
+            previous_index = np.full(point_estimate.shape, 0, dtype = np.int64)
+
+            output = np.full(point_estimate.shape, 0, dtype = np.float32)
+
+            path_score[0] = point_estimate[0]
+            start = 1; stop = n_loci; step = 1
+            for i in range(start, stop, step):
+                # Pass along sampled value at the locus.
+                maximum_likelihood_step(path_score[i-step], recombination_rate[i], point_estimate[i], path_score[i], previous_index[i])
+
+            # Traceback
+            start_index = np.argmax(path_score[-1])
+            output[n_loci-1].ravel()[start_index] = 1
+
+            index = start_index
+            start = n_loci-2; stop = -1; step = -1
+            for i in range(start, stop, step):
+                index = previous_index[i-step].ravel()[index]
+                output[i].ravel()[index] = 1
+            return output
+
+        return viterbi_path
+
+    @staticmethod
+    @jit(nopython=True, nogil=True)
+    def maximum_likelihood_step(previous_path_score, recombination_rate, point_estimate, output_path_score, output_index):
+
+        best_index = np.argmax(previous_path_score)
+        best_score = previous_path_score[best_index]
+
+        n_hap = previous_path_score.shape[0]
+        for i in range(n_hap):
+
+            no_rec_score = (1-recombination_rate)*previous_path_score[i]
+            rec_score = best_score*recombination_rate
+
+            if no_rec_score > rec_score:
+                # No recombination
+                output_path_score[i] = no_rec_score*point_estimate[i]
+                output_index[i] = i
+            else:
+                # Recombination
+                output_path_score[i] = rec_score/n_hap*point_estimate[i]
+                output_index[i] = best_index
+        
+        output_path_score /= np.sum(output_path_score)
 
     def calculate_genotype_probabilities(self, total_probs, haplotype_library, **kwargs):
         haplotype_dosages = haplotype_library.get_haplotypes()
@@ -314,6 +361,237 @@ class DiploidMarkovModel(HaploidMarkovModel) :
         output[:] += np.expand_dims(row_sums, 0)/output.shape[0]*recombination_rate*(1-recombination_rate) # recombination on the maternal (second) chromosome)
         output[:] += np.expand_dims(col_sums, 1)/output.shape[1]*recombination_rate*(1-recombination_rate) # recombination on the paternal (first) chromosome)
         output[:] += recombination_rate**2/output.size # double recombination
+    
+    @staticmethod
+    @jit(nopython=True, nogil=True)
+    def maximum_likelihood_step(previous_path_score, recombination_rate, point_estimate, output_path_score, output_index):
+
+        n_pat = previous_path_score.shape[0]
+        n_mat = previous_path_score.shape[1]
+
+        combined_max_index = np.argmax(previous_path_score)
+        combined_max_score = previous_path_score.ravel()[combined_max_index] * recombination_rate**2/(n_mat*n_pat)
+
+        paternal_max_index = np.full(n_pat, 0, dtype = np.int64)
+        paternal_max_value = np.full(n_pat, 0, dtype = np.float32)
+
+        maternal_max_index = np.full(n_mat, 0, dtype = np.int64)
+        maternal_max_value = np.full(n_mat, 0, dtype = np.float32)
+
+        # Recombination on the maternal side, paternal side is fixed
+        for i in range(n_pat):
+            index = np.argmax(previous_path_score[i,:])
+            paternal_max_value[i] = previous_path_score[i, index] * (1-recombination_rate)*recombination_rate/n_mat
+            paternal_max_index[i] = i*n_mat + index
+
+
+        # Recombination on the paternal side, maternal side is fixed
+        for j in range(n_mat):
+            index = np.argmax(previous_path_score[:, j])
+            maternal_max_value[j] = previous_path_score[index, j] * (1-recombination_rate)*recombination_rate/n_pat
+            maternal_max_index[j] = index*n_mat + j
+
+        for i in range(n_pat):
+            for j in range(n_mat):
+
+                best_score = (1-recombination_rate)**2*previous_path_score[i,j]
+                best_index = i*n_mat + j
+
+                # Paternal recombination 
+                if paternal_max_value[i] > best_score:
+                    best_score = paternal_max_value[i]
+                    best_index = paternal_max_index[i]
+
+                if maternal_max_value[j] > best_score:
+                    best_score = maternal_max_value[j]
+                    best_index = maternal_max_index[j]
+                
+                if combined_max_score > best_score:
+                    best_score = combined_max_score
+                    best_index = combined_max_index
+
+                output_path_score[i,j] = best_score*point_estimate[i,j]
+                output_index[i,j] = best_index
+        
+ 
+        output_path_score /= np.sum(output_path_score)
+
+class JointMarkovModel(HaploidMarkovModel) :
+    def __init__(self, n_loci, error, recombination_rate = None):
+        HaploidMarkovModel.__init__(self, n_loci, error, recombination_rate)
+
+
+    @staticmethod
+    @jit(nopython=True, nogil=True)
+    def njit_get_point_estimates(indGeno, haplotypes, error, mask):
+        n_hap, n_loci = haplotypes.shape
+
+        point_estimates = np.full((n_loci, n_hap, n_hap + 1), 1, dtype = np.float32)
+
+        diploid_section = point_estimates[:,:,0:-1]
+        haploid_section = point_estimates[:,:,-1]
+
+        # Diploid point estimates/Emission probabilities
+
+        for i in range(n_loci):
+            if indGeno[i] != 9 and mask[i]:
+                for j in range(n_hap):
+                    for k in range(n_hap):
+                        sourceGeno = haplotypes[j, i] + haplotypes[k, i]
+                        if sourceGeno == indGeno[i]:
+                            diploid_section[i, j, k] = 1-error[i]
+                        else:
+                            diploid_section[i, j, k] = error[i]
+
+        # Diploid point estimates/Emission probabilities
+        for i in range(n_loci):
+            if indGeno[i] != 9 and mask[i]:
+                for j in range(n_hap):
+                        sourceGeno = 2*haplotypes[j, i]
+                        if sourceGeno == indGeno[i]:
+                            haploid_section[i, j] = 1-error[i]
+                        else:
+                            haploid_section[i, j] = error[i]
+
+        return point_estimates
+
+
+    @staticmethod
+    @jit(nopython=True, nogil=True)
+    def njit_calculate_genotype_probabilities(total_probs, reference_haplotypes) :
+        n_hap, n_loci = reference_haplotypes.shape
+        geno_probs = np.full((4, n_loci), 0.00001, dtype = np.float32)
+
+        diploid_section = total_probs[:,:,0:-1]
+        haploid_section = total_probs[:,:,-1]
+
+        for i in range(n_loci):
+            for j in range(n_hap):
+                for k in range(n_hap):
+                    # diploid case where the markers are assumed independent.
+                    if j != k: 
+                        pat_value = reference_haplotypes[j, i]
+                        mat_value = reference_haplotypes[k, i]
+                        prob_value = diploid_section[i,j,k]
+                        if pat_value != 9 and mat_value != 9:
+                            # Add in a sum of total_probs values. 
+                            geno_probs[0, i] += prob_value * (1-pat_value)*(1-mat_value)   #aa
+                            geno_probs[1, i] += prob_value * (1-pat_value)*mat_value     #aA
+                            geno_probs[2, i] += prob_value * pat_value*(1-mat_value)     #Aa
+                            geno_probs[3, i] += prob_value * pat_value*mat_value       #AA
+
+                    # markers are not independent
+                    else:
+                        hap_value = reference_haplotypes[j, i]
+                        prob_value = diploid_section[i,j,k]
+                        if hap_value != 9:
+                            geno_probs[0, i] += prob_value * (1-hap_value)
+                            geno_probs[1, i] += 0
+                            geno_probs[2, i] += 0
+                            geno_probs[3, i] += prob_value * hap_value
+
+        for i in range(n_loci):
+            for j in range(n_hap):
+                hap_value = reference_haplotypes[j, i]
+                prob_value = haploid_section[i,j]
+                if hap_value != 9:
+                    geno_probs[0, i] += prob_value * (1-hap_value)
+                    geno_probs[1, i] += 0
+                    geno_probs[2, i] += 0
+                    geno_probs[3, i] += prob_value * hap_value
+
+        geno_probs = geno_probs/np.sum(geno_probs, axis = 0)
+        return geno_probs
+
+
+    
+    
+    @staticmethod
+    @jit(nopython=True, nogil=True)
+    def transmission(cummulative_probabilities, previous_point_probability, recombination_rate, output):
+        
+        output[:] = cummulative_probabilities * previous_point_probability
+        normalize(output)
+
+        diploid_section = output[:,0:-1]
+        haploid_section = output[:,-1]
+
+        diploid_weight = np.sum(diploid_section)
+        haploid_weight = np.sum(haploid_section)
+
+        row_sums = np.sum(diploid_section, 0)
+        col_sums = np.sum(diploid_section, 1)
+
+        diploid_section[:] *= (1 - recombination_rate)**2
+        diploid_section[:] += np.expand_dims(row_sums, 0)/diploid_section.shape[0]*recombination_rate*(1-recombination_rate) # recombination on the maternal (second) chromosome)
+        diploid_section[:] += np.expand_dims(col_sums, 1)/diploid_section.shape[1]*recombination_rate*(1-recombination_rate) # recombination on the paternal (first) chromosome)
+        diploid_section[:] += diploid_weight*recombination_rate**2/diploid_section.size # double recombination
+
+        haploid_section[:] *= (1 - recombination_rate)
+        haploid_section[:] += haploid_weight*recombination_rate/haploid_section.size
+
+        # loose the recombination to the haploid section and add the haploid recombination to diploid
+        diploid_section[:] *= (1 - recombination_rate)
+        diploid_section[:] += recombination_rate * haploid_weight/diploid_section.size
+
+        # loose the recombination to the haploid section and add the haploid recombination to diploid
+        haploid_section[:] *= (1 - recombination_rate)
+        haploid_section[:] += recombination_rate * diploid_weight/haploid_section.size
+
+    
+    # @staticmethod
+    # @jit(nopython=True, nogil=True)
+    # def maximum_likelihood_step(previous_path_score, recombination_rate, point_estimate, output_path_score, output_index):
+
+    #     n_pat = previous_path_score.shape[0]
+    #     n_mat = previous_path_score.shape[1]
+
+    #     combined_max_index = np.argmax(previous_path_score)
+    #     combined_max_score = previous_path_score.ravel()[combined_max_index] * recombination_rate**2/(n_mat*n_pat)
+
+    #     paternal_max_index = np.full(n_pat, 0, dtype = np.int64)
+    #     paternal_max_value = np.full(n_pat, 0, dtype = np.float32)
+
+    #     maternal_max_index = np.full(n_mat, 0, dtype = np.int64)
+    #     maternal_max_value = np.full(n_mat, 0, dtype = np.float32)
+
+    #     # Recombination on the maternal side, paternal side is fixed
+    #     for i in range(n_pat):
+    #         index = np.argmax(previous_path_score[i,:])
+    #         paternal_max_value[i] = previous_path_score[i, index] * (1-recombination_rate)*recombination_rate/n_mat
+    #         paternal_max_index[i] = i*n_mat + index
+
+
+    #     # Recombination on the paternal side, maternal side is fixed
+    #     for j in range(n_mat):
+    #         index = np.argmax(previous_path_score[:, j])
+    #         maternal_max_value[j] = previous_path_score[index, j] * (1-recombination_rate)*recombination_rate/n_pat
+    #         maternal_max_index[j] = index*n_mat + j
+
+    #     for i in range(n_pat):
+    #         for j in range(n_mat):
+
+    #             best_score = (1-recombination_rate)**2*previous_path_score[i,j]
+    #             best_index = i*n_mat + j
+
+    #             # Paternal recombination 
+    #             if paternal_max_value[i] > best_score:
+    #                 best_score = paternal_max_value[i]
+    #                 best_index = paternal_max_index[i]
+
+    #             if maternal_max_value[j] > best_score:
+    #                 best_score = maternal_max_value[j]
+    #                 best_index = maternal_max_index[j]
+                
+    #             if combined_max_score > best_score:
+    #                 best_score = combined_max_score
+    #                 best_index = combined_max_index
+
+    #             output_path_score[i,j] = best_score*point_estimate[i,j]
+    #             output_index[i,j] = best_index
+        
+ 
+    #     output_path_score /= np.sum(output_path_score)
 
 
 @jit(nopython=True, nogil=True)
