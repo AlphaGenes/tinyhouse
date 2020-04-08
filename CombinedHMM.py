@@ -66,8 +66,8 @@ class HaploidMarkovModel :
         return ProbMath.call_genotype_probs(genotype_probabilities, threshold)
 
 
-    def get_point_estimates(self, individual, haplotype_library, **kwargs) :
-        called_haplotypes = haplotype_library.get_called_haplotypes()
+    def get_point_estimates(self, individual, haplotype_library, library_calling_threshold = 0.95, **kwargs) :
+        called_haplotypes = haplotype_library.get_called_haplotypes(threshold = library_calling_threshold)
         mask = self.get_mask(called_haplotypes)     
         point_estimates = self.njit_get_point_estimates(individual.genotypes, called_haplotypes, self.error, mask)
         return point_estimates
@@ -267,7 +267,8 @@ class DiploidMarkovModel(HaploidMarkovModel) :
     def __init__(self, n_loci, error, recombination_rate = None):
         HaploidMarkovModel.__init__(self, n_loci, error, recombination_rate)
 
-    def extract_reference_panels(self, haplotype_library = None, maternal_haplotype_library = None, paternal_haplotype_library = None) :
+
+    def extract_reference_panels(self, haplotype_library = None, paternal_haplotype_library = None, maternal_haplotype_library = None) :
         if maternal_haplotype_library is not None and paternal_haplotype_library is not None:
             seperate_reference_panels = True
             return paternal_haplotype_library, maternal_haplotype_library, seperate_reference_panels
@@ -276,14 +277,16 @@ class DiploidMarkovModel(HaploidMarkovModel) :
             seperate_reference_panels = False
             return haplotype_library, haplotype_library, seperate_reference_panels
 
-    def get_point_estimates(self, individual, **kwargs):
+
+    def get_point_estimates(self, individual, library_calling_threshold= 0.95, **kwargs):
         paternal_haplotype_library, maternal_haplotype_library, seperate_reference_panels = self.extract_reference_panels(**kwargs)
 
-        paternal_called_haplotypes = paternal_haplotype_library.get_called_haplotypes()
-        maternal_called_haplotypes = maternal_haplotype_library.get_called_haplotypes()
+        paternal_called_haplotypes = paternal_haplotype_library.get_called_haplotypes(threshold = library_calling_threshold)
+        maternal_called_haplotypes = maternal_haplotype_library.get_called_haplotypes(threshold = library_calling_threshold)
  
         mask = self.get_mask(paternal_called_haplotypes) & self.get_mask(maternal_called_haplotypes) 
         return self.njit_get_point_estimates(individual.genotypes, paternal_called_haplotypes, maternal_called_haplotypes, self.error, mask)
+
 
     @staticmethod
     @jit(nopython=True, nogil=True)

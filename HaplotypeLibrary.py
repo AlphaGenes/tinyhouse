@@ -129,7 +129,7 @@ class HaplotypeLibrary(object):
             removeMissingValues(hap)
 
 
-    def get_called_haplotypes(self, threshold = 0.01):
+    def get_called_haplotypes(self, threshold = 0.99):
         """Return "called" haplotypes -- these are haplotypes which only contain integer values (0,1,9). 
         For haplotypes where there is uncertainty, a threshold is used to determine whether the value is called as a value or is missing. """
 
