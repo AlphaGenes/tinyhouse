@@ -283,7 +283,7 @@ class DiploidMarkovModel(HaploidMarkovModel) :
 
         paternal_called_haplotypes = paternal_haplotype_library.get_called_haplotypes(threshold = library_calling_threshold)
         maternal_called_haplotypes = maternal_haplotype_library.get_called_haplotypes(threshold = library_calling_threshold)
- 
+
         mask = self.get_mask(paternal_called_haplotypes) & self.get_mask(maternal_called_haplotypes) 
         return self.njit_get_point_estimates(individual.genotypes, paternal_called_haplotypes, maternal_called_haplotypes, self.error, mask)
 
@@ -309,8 +309,8 @@ class DiploidMarkovModel(HaploidMarkovModel) :
         return point_estimates
 
 
-    def calculate_genotype_probabilities(self, total_probs, haplotype_library = None, maternal_haplotype_library= None, paternal_haplotype_library= None, **kwargs):
-        paternal_haplotype_library, maternal_haplotype_library, seperate_reference_panels = self.extract_reference_panels(haplotype_library, maternal_haplotype_library, paternal_haplotype_library)
+    def calculate_genotype_probabilities(self, total_probs, haplotype_library = None, paternal_haplotype_library= None, maternal_haplotype_library= None, **kwargs):
+        paternal_haplotype_library, maternal_haplotype_library, seperate_reference_panels = self.extract_reference_panels(haplotype_library, paternal_haplotype_library, maternal_haplotype_library)
         return self.njit_calculate_genotype_probabilities(total_probs, paternal_haplotype_library.get_haplotypes(), maternal_haplotype_library.get_haplotypes(), seperate_reference_panels)
 
     @staticmethod
@@ -324,7 +324,7 @@ class DiploidMarkovModel(HaploidMarkovModel) :
             for j in range(n_pat):
                 for k in range(n_mat):
                     # diploid case where the markers are assumed independent.
-                    if not seperate_reference_panels or j != k: 
+                    if seperate_reference_panels or j != k: 
                         pat_value = paternal_haplotypes[j, i]
                         mat_value = maternal_haplotypes[k, i]
                         prob_value = total_probs[i,j,k]
