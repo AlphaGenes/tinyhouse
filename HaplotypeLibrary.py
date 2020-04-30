@@ -1,3 +1,4 @@
+import pickle
 import random
 import numpy as np
 from numba import njit, jit
@@ -27,6 +28,22 @@ def topk_indices(genotype, haplotypes, n_topk):
     fraction_opposite_homozygous = np.sum(opposite_homozygous, axis=1) / np.sum(homozygous)
     # Top k indices
     return np.argpartition(fraction_opposite_homozygous, n_topk)[:n_topk]
+
+def save(filepath, haplotype_library):
+    """Save haplotype library
+        Note: the format of this is likely to change
+        Note: need to handle case where args.out contains an output path"""
+    f = open(filepath, 'wb')
+    pickle.dump(haplotype_library, f)
+    f.close()
+
+def load(filepath):
+    """Load haplotype library
+    Note: the format of this is likely to change"""
+    f = open(filepath, 'rb')
+    haplotype_library = pickle.load(f)
+    f.close()
+    return haplotype_library
 
 
 class HaplotypeLibrary(object):
@@ -104,7 +121,6 @@ class HaplotypeLibrary(object):
         sampled_indices = np.sort(np.random.choice(len(self), size=n_haplotypes, replace=False))
         return self._haplotypes[sampled_indices]
 
-
     def sample_best_individuals(self, n_haplotypes, genotype, exclude_identifiers=None):
         """Sample haplotypes that 'closely match' genotype `genotype`"""
         n_bins = 5
@@ -130,7 +146,6 @@ class HaplotypeLibrary(object):
         sampled_indices = list(sampled_indices)
 
         return self._haplotypes[sampled_indices]
-
 
     def exclude_identifiers_and_sample(self, identifiers, n_haplotypes):
         """Return a NumPy array of (n_haplotypes) randomly sampled haplotypes
