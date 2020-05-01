@@ -107,7 +107,8 @@ class Individual(object):
         # Take an individual and create an individual that just contains information on those markers.
         # It's okay if this wipes other information.
 
-        new_ind = Individual(self.idx, self.idn)
+        # print(self.__class__)
+        new_ind = self.__class__(self.idx, self.idn)
         if self.genotypes is not None:
             new_ind.genotypes = self.genotypes[start:stop].copy() # Maybe could get away with not doing copies... doing them just to be safe.
 

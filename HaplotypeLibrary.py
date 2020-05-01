@@ -70,27 +70,39 @@ class HaplotypeLibrary(object):
     Use freeze() and unfreeze() to swap between the two states. Typically a library is
     built with append() and then frozen to enable additional functionality"""
 
-    def __init__(self, n_loci):
+    def __init__(self, n_loci = None):
         self._n_loci = n_loci
         self._frozen = False
         self._haplotypes = []
         self._identifiers = []  # index to identifier mapping
+        self.dtype = None
+
 
     def __repr__(self):
         return repr(self._identifiers) + '\n' + repr(self._haplotypes)
 
+
     def __len__(self):
         """Number of haplotypes in the library"""
         return len(self._haplotypes)
+
 
     def append(self, haplotype, identifier=None):
         """Append a single haplotype to the library.
         Note: a copy of the haplotype is taken"""
         if self._frozen:
             raise RuntimeError('Cannot append to frozen library')
+        
+        if self.dtype is None:
+            self.dtype = haplotype.dtype
+
+        if self._n_loci is None:
+            self._n_loci = len(haplotype)
+
         self._check_haplotype(haplotype, expected_shape=(self._n_loci,))
         self._identifiers.append(identifier)
         self._haplotypes.append(haplotype.copy())
+
 
     def freeze(self):
         """Freeze the library: convert identifier and haplotype lists to NumPy arrays"""
@@ -100,6 +112,7 @@ class HaplotypeLibrary(object):
         self._identifiers = np.array(self._identifiers)
         self._frozen = True
 
+    
     def unfreeze(self):
         """Unfreeze the library: convert identifiers and haplotypes to lists"""
         if not self._frozen:
@@ -108,6 +121,7 @@ class HaplotypeLibrary(object):
         self._identifiers = list(self._identifiers)
         self._frozen = False
 
+    
     def update(self, haplotypes, identifier):
         """Update identifier's haplotypes
         'haplotypes' can be a 1d array of loci or a 2d array of shape(#haps, #loci)"""
@@ -118,6 +132,7 @@ class HaplotypeLibrary(object):
         # Use Numpy's broadcasting checks to handle mismatch of shape in the following:
         self._haplotypes[indices] = haplotypes
 
+    
     def exclude_identifiers(self, identifiers):
         """Return a NumPy array of haplotypes excluding specified identifiers
         'identifiers' can be a single identifier or iterable of identifiers"""
@@ -126,6 +141,7 @@ class HaplotypeLibrary(object):
         mask = ~np.isin(self._identifiers, identifiers)
         return self._haplotypes[mask]
 
+    
     def sample(self, n_haplotypes):
         """Return a NumPy array of randomly sampled haplotypes"""
         if not self._frozen:
@@ -134,6 +150,7 @@ class HaplotypeLibrary(object):
             n_haplotypes = len(self)
         sampled_indices = np.sort(np.random.choice(len(self), size=n_haplotypes, replace=False))
         return self._haplotypes[sampled_indices]
+
 
     def sample_best_individuals(self, n_haplotypes, genotype, exclude_identifiers=None):
         """Sample haplotypes that 'closely match' genotype `genotype`"""
@@ -161,6 +178,7 @@ class HaplotypeLibrary(object):
 
         return self._haplotypes[sampled_indices]
 
+
     def exclude_identifiers_and_sample(self, identifiers, n_haplotypes):
         """Return a NumPy array of (n_haplotypes) randomly sampled haplotypes
         excluding specified identifiers.
@@ -178,17 +196,55 @@ class HaplotypeLibrary(object):
         sampled_indices.sort()
         return self._haplotypes[exclude_mask][sampled_indices]
 
+    
     def asMatrix(self):
         """Return the NumPy array - kept for backwards compatibility"""
         if self._frozen:
             return self._haplotypes.copy()
         return np.array(self._haplotypes)
 
+    
     def removeMissingValues(self):
         """Replace missing values randomly with 0 or 1 with 50 % probability
         kept for backwards compatibility"""
         for hap in self._haplotypes:
             removeMissingValues(hap)
+
+
+    def get_called_haplotypes(self, threshold = 0.99):
+        """Return "called" haplotypes -- these are haplotypes which only contain integer values (0,1,9). 
+        For haplotypes where there is uncertainty, a threshold is used to determine whether the value is called as a value or is missing. """
+
+        if not self._frozen:
+            self.freeze()
+        if self.dtype is np.int8:
+            return self._haplotypes
+
+        else:
+            called_haplotypes = np.full(self._haplotypes.shape, 0, dtype = np.float32)
+            for i in range(called_haplotypes.shape[0]):
+                called_haplotypes[i,:] = self.call_haplotypes(self._haplotypes[i,:], threshold)
+            return called_haplotypes
+
+    @staticmethod            
+    @jit(nopython=True)
+    def call_haplotypes(hap, threshold):
+        nLoci = len(hap)
+        output = np.full(nLoci, 9, dtype = np.int8)
+        for i in range(nLoci):
+            if hap[i] <= 1 :
+                if hap[i] > threshold : output[i] = 1
+                if hap[i] < 1-threshold : output[i] = 0
+        return output
+
+
+    def get_haplotypes(self):
+        if not self._frozen:
+            self.freeze()
+
+        return self._haplotypes
+
+
 
     def _indices(self, identifier):
         """Get row indices associated with an identifier. These can be used for fancy indexing"""
@@ -203,8 +259,8 @@ class HaplotypeLibrary(object):
 
     def _check_haplotype_dtype(self, haplotype):
         """Check the haplotype has expected dtype"""
-        if haplotype.dtype != np.int8:
-            raise TypeError('haplotype(s) not dtype np.int8')
+        if haplotype.dtype != self.dtype:
+            raise TypeError('haplotype(s) not equal to library dtype, {self.dtype}')
 
     def _check_haplotype(self, haplotype, expected_shape):
         """Check haplotype has expected shape and dtype.

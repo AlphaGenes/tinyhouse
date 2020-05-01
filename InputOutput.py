@@ -42,77 +42,21 @@ def getParser(program) :
         core_impute_parser.add_argument('-maxthreads',default=1, required=False, type=int, help='Number of threads to use. Default: 1.')
         core_impute_parser.add_argument('-binaryoutput', action='store_true', required=False, help='Flag to write out the genotypes as a binary plink output.')
 
-    if program in ["AlphaPeel", "AlphaAssign", "AlphaMGS", "AlphaCall"]:
-        add_genotype_probability_arguments(praser)
+    if program in ["AlphaPeel", "AlphaMGS", "AlphaCall"]:
+        probability_parser = parser.add_argument_group("Genotype probability arguments")
+        add_arguments_from_dictionary(probability_parser, get_probability_options(), None)
+
+
         
     if program in ["longreads"]:
         longread_parser = parser.add_argument_group("Long read arguments")
         longread_parser.add_argument('-longreads', default=None, required=False, type=str, nargs="*", help='A read file.')
 
-    if program == "AlphaPeel" :
-        core_peeling_parser = parser.add_argument_group("Mandatory peeling arguments")
-        core_peeling_parser.add_argument('-runtype', default=None, required=False, type=str, help='Program run type. Either "single" or "multi".')
-
-        peeling_parser = parser.add_argument_group("Optional peeling arguments")
-
-        peeling_parser.add_argument('-ncycles',default=5, required=False, type=int, help='Number of peeling cycles. Default: 5.')
-        peeling_parser.add_argument('-maxthreads',default=1, required=False, type=int, help='Number of threads to use. Default: 1.')
-        peeling_parser.add_argument('-length', default=1.0, required=False, type=float, help='Estimated length of the chromosome in Morgansa. [Default 1.00]')
-        peeling_parser.add_argument('-penetrance',   default=None, required=False, type=str, nargs="*", help='An optional external penetrance file. This will overwrite the default penetrance values.')
-
-        peeling_control_parser = parser.add_argument_group("Peeling control arguments")
-        peeling_control_parser.add_argument('-esterrors', action='store_true', required=False, help='Flag to re-estimate the genotyping error rates after each peeling cycle.')
-        peeling_control_parser.add_argument('-estmaf', action='store_true', required=False, help='Flag to re-estimate the minor allele frequency after each peeling cycle.')
-        # peeling_control_parser.add_argument('-esttransitions', action='store_true', required=False, help='Flag to re-estimate the transmission rates after each peeling cycle. Currently not recommended to use')
-        peeling_control_parser.add_argument('-nophasefounders', action='store_true', required=False, help='A flag phase a heterozygous allele in one of the founders (if such an allele can be found).')
-        peeling_control_parser.add_argument('-sexchrom', action='store_true', required=False, help='A flag to that this is a sex chromosome. Sex needs to be given in the pedigree file. This is currently an experimental option.')
-
-        singleLocus_parser = parser.add_argument_group("Single locus arguments")
-
-        singleLocus_parser.add_argument('-mapfile',default=None, required=False, type=str, help='a map file for genotype data.')
-        singleLocus_parser.add_argument('-segmapfile',default=None, required=False, type=str, help='a map file for the segregation estimates for hybrid peeling.')
-        singleLocus_parser.add_argument('-segfile',default=None, required=False, type=str, help='A segregation file for hybrid peeling.')
-        # singleLocus_parser.add_argument('-blocksize',default=100, required=False, type=int, help='The number of markers to impute at once. This changes the memory requirements of the program.')
-
-        output_parser = parser.add_argument_group("Peeling output options")
-        
-        output_parser.add_argument('-no_dosages', action='store_true', required=False, help='Flag to surpress the dosage files.')
-        output_parser.add_argument('-no_seg', action='store_true', required=False, help='Flag to surpress the segregation files (e.g. when running for chip imputation and not hybrid peeling).')
-        output_parser.add_argument('-no_params', action='store_true', required=False, help='Flag to surpress writing the paramater files.')
-
-        output_parser.add_argument('-haps', action='store_true', required=False, help='Flag to enable writing out the genotype probabilities.')
-        output_parser.add_argument('-calling_threshold', default=None, required=False, type=float, nargs="*", help='Genotype calling threshold(s). Multiple space seperated vallues allowed. Use. .3 for best guess genotype.')
-        output_parser.add_argument('-binary_call_files', action='store_true', required=False, help='Flag to write out the called genotype files as a binary plink output [Not yet implimented].')
-
     if program == "AlphaPlantImpute" :
         core_plant_parser = parser.add_argument_group("Mandatory arguments")
         core_plant_parser.add_argument('-plantinfo', default=None, required=False, type=str, nargs="*", help='A plant info file.')
 
-    
-    if program == "AlphaAssign" :
-        core_assign_parser = parser.add_argument_group("Core assignement arguments")
-
-        core_assign_parser.add_argument('-potentialsires', default=None, required=False, type=str, help='A list of potential sires for each individual.')
-        core_assign_parser.add_argument('-potentialdams', default=None, required=False, type=str, help='A list of potential dams for each individual.')
-        core_assign_parser.add_argument('-checkpedigree', action='store_true', required=False, help='Flag to check the pre-existing pedigree.')
-        core_assign_parser.add_argument('-assignall',action='store_true', required=False, help='Flag to force the algorithm to assign a sire. Does not effect the -checkpedigree option. Recomended only if the true sire/dam is guaranteed to be in the list of putative parents.')
         
-
-
-        assign_parser = parser.add_argument_group("Additional assignment arguments")
-        #Additional options.
-
-        assign_parser.add_argument('-snplist',default=None, required=False, type=str, help='An optional list of SNPs to use for parentage assignement and pedigree reconstruction. Only works if a bfile is included.')
-        assign_parser.add_argument('-subsample',default="all", required=False, type=str, help='How should markers be subsetted? [all, coverage]')
-        
-        assign_parser.add_argument('-usemaf', action='store_true', required=False, help='A flag to use the minor allele frequency when constructing genotype estimates for the sire and maternal grandsire. Not recomended for small input pedigrees.')
-
-        selection_parser = parser.add_argument_group("Arguments to choose how sires and dams are assigned")
-        selection_parser.add_argument('-runtype',default="both", required=False, type=str, help='opp, likelihood, both')
-        selection_parser.add_argument('-add_threshold',default=9, required=False, type=float, help='Assignement score threshold for adding a new individual as a parent')
-        selection_parser.add_argument('-remove_threshold',default=-9, required=False, type=float, help='Assignement score threshold for removing an existing parent')
-        selection_parser.add_argument('-p_threshold',default=-9, required=False, type=float, help='Negative log-pvalue threshold for removing parents via opposing homozygotes')
-    
     if program == "AlphaMGS" :
         core_assign_parser = parser.add_argument_group("Core assignement arguments")
         core_assign_parser.add_argument('-potentialgrandsires', default=None, required=False, type=str, help='A list of potential dams for each individual.')
