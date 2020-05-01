@@ -18,16 +18,32 @@ def bin_slices(l, n):
     return slices(0, l//n+1, l%n) + slices((l//n+1)*(l%n), l//n, n-l%n)
 
 def topk_indices(genotype, haplotypes, n_topk):
-    """Return top-k haplotype indices with fewest opposite homozygous markers compared to genotype"""
-    # Note: can probably speed-up with
-    # opposite_homozygous = ((g==0) & (h==1)) | ((g==2) & (h==0))
-    homozygous = (genotype == 0) | (genotype == 2)  # note: this purposefully ignores missing loci
-    if np.sum(homozygous) == 0:
-        print('Warning: genotype contains no homozygous markers')
-    opposite_homozygous = (genotype//2 != haplotypes) & homozygous
-    fraction_opposite_homozygous = np.sum(opposite_homozygous, axis=1) / np.sum(homozygous)
-    # Top k indices
-    return np.argpartition(fraction_opposite_homozygous, n_topk)[:n_topk]
+    """Return top-k haplotype indices with fewest opposite homozygous markers compared to genotype
+    The array of number of opposite homozygous loci for each haplotype (`opposite_homozygous`)
+    is first shuffled so that tied values are effectively randomly sampled"""
+
+    # Mask of homozygous loci in the genotype
+    homozygous_mask = (genotype == 0) | (genotype == 2)  # note: this purposefully ignores missing loci
+    if np.sum(homozygous_mask) == 0:
+        print('Warning: genotype segment contains no homozygous markers')
+
+    # Mask just these homoszygous loci
+    g = genotype[homozygous_mask]
+    h = haplotypes[:, homozygous_mask]
+
+    # Number of opposite homozygous loci for all haplotypes
+    opposite_homozygous = np.sum(g//2 != h, axis=1)
+
+    # Shuffle indices
+    indices = np.arange(len(opposite_homozygous))
+    np.random.shuffle(indices)
+
+    # Stable argsort on the shuffled values
+    args = np.argsort(opposite_homozygous[indices], kind='stable')
+
+    # Top-k indices (fewest opposite homozygous loci)
+    return indices[args[:n_topk]], opposite_homozygous[indices[args[:n_topk]]]
+
 
 def save(filepath, haplotype_library):
     """Save haplotype library
