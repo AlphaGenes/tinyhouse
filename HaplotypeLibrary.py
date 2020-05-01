@@ -24,10 +24,8 @@ def topk_indices(genotype, haplotypes, n_topk):
 
     # Mask of homozygous loci in the genotype
     homozygous_mask = (genotype == 0) | (genotype == 2)  # note: this purposefully ignores missing loci
-    if np.sum(homozygous_mask) == 0:
-        print('Warning: genotype segment contains no homozygous markers')
 
-    # Mask just these homoszygous loci
+    # Select just these homozygous loci
     g = genotype[homozygous_mask]
     h = haplotypes[:, homozygous_mask]
 
