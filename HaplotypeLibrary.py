@@ -42,7 +42,7 @@ def topk_indices(genotype, haplotypes, n_topk):
     args = np.argsort(opposite_homozygous[indices], kind='stable')
 
     # Top-k indices (fewest opposite homozygous loci)
-    return indices[args[:n_topk]], opposite_homozygous[indices[args[:n_topk]]]
+    return indices[args[:n_topk]]
 
 
 def save(filepath, haplotype_library):
