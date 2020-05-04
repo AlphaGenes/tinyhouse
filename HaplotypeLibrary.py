@@ -70,7 +70,7 @@ class HaplotypeLibrary(object):
     Use freeze() and unfreeze() to swap between the two states. Typically a library is
     built with append() and then frozen to enable additional functionality"""
 
-    def __init__(self, n_loci = None):
+    def __init__(self, n_loci=None):
         self._n_loci = n_loci
         self._frozen = False
         self._haplotypes = []
@@ -92,7 +92,7 @@ class HaplotypeLibrary(object):
         Note: a copy of the haplotype is taken"""
         if self._frozen:
             raise RuntimeError('Cannot append to frozen library')
-        
+
         if self.dtype is None:
             self.dtype = haplotype.dtype
 
@@ -112,7 +112,7 @@ class HaplotypeLibrary(object):
         self._identifiers = np.array(self._identifiers)
         self._frozen = True
 
-    
+
     def unfreeze(self):
         """Unfreeze the library: convert identifiers and haplotypes to lists"""
         if not self._frozen:
@@ -121,7 +121,7 @@ class HaplotypeLibrary(object):
         self._identifiers = list(self._identifiers)
         self._frozen = False
 
-    
+
     def update(self, haplotypes, identifier):
         """Update identifier's haplotypes
         'haplotypes' can be a 1d array of loci or a 2d array of shape(#haps, #loci)"""
@@ -132,7 +132,7 @@ class HaplotypeLibrary(object):
         # Use Numpy's broadcasting checks to handle mismatch of shape in the following:
         self._haplotypes[indices] = haplotypes
 
-    
+
     def exclude_identifiers(self, identifiers):
         """Return a NumPy array of haplotypes excluding specified identifiers
         'identifiers' can be a single identifier or iterable of identifiers"""
@@ -141,7 +141,7 @@ class HaplotypeLibrary(object):
         mask = ~np.isin(self._identifiers, identifiers)
         return self._haplotypes[mask]
 
-    
+
     def sample(self, n_haplotypes):
         """Return a NumPy array of randomly sampled haplotypes"""
         if not self._frozen:
@@ -152,9 +152,8 @@ class HaplotypeLibrary(object):
         return self._haplotypes[sampled_indices]
 
 
-    def sample_best_individuals(self, n_haplotypes, genotype, exclude_identifiers=None):
+    def sample_targeted(self, n_haplotypes, genotype, n_bins, exclude_identifiers=None):
         """Sample haplotypes that 'closely match' genotype `genotype`"""
-        n_bins = 5
         if not self._frozen:
             raise RuntimeError('Cannot sample from an unfrozen library')
         if n_haplotypes > len(self):
@@ -196,14 +195,14 @@ class HaplotypeLibrary(object):
         sampled_indices.sort()
         return self._haplotypes[exclude_mask][sampled_indices]
 
-    
+
     def asMatrix(self):
         """Return the NumPy array - kept for backwards compatibility"""
         if self._frozen:
             return self._haplotypes.copy()
         return np.array(self._haplotypes)
 
-    
+
     def removeMissingValues(self):
         """Replace missing values randomly with 0 or 1 with 50 % probability
         kept for backwards compatibility"""
@@ -212,7 +211,7 @@ class HaplotypeLibrary(object):
 
 
     def get_called_haplotypes(self, threshold = 0.99):
-        """Return "called" haplotypes -- these are haplotypes which only contain integer values (0,1,9). 
+        """Return "called" haplotypes -- these are haplotypes which only contain integer values (0,1,9).
         For haplotypes where there is uncertainty, a threshold is used to determine whether the value is called as a value or is missing. """
 
         if not self._frozen:
@@ -243,7 +242,6 @@ class HaplotypeLibrary(object):
             self.freeze()
 
         return self._haplotypes
-
 
 
     def _indices(self, identifier):
