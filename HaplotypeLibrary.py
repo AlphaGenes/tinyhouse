@@ -1,9 +1,64 @@
+import pickle
 import random
 import numpy as np
 from numba import njit, jit
 
 def profile(x):
     return x
+
+# Helper functions
+def slices(start, length, n):
+    """Return `n` slices starting at `start` of length `length`"""
+    return [slice(i, i+length) for i in range(start, length*n + start, length)]
+
+def bin_slices(l, n):
+    """Return a list of slice() objects that split l items into n bins
+    The first l%n bins are length l//n+1; the remaining n-l%n bins are length l//n
+    Similar to np.array_split()"""
+    return slices(0, l//n+1, l%n) + slices((l//n+1)*(l%n), l//n, n-l%n)
+
+def topk_indices(genotype, haplotypes, n_topk):
+    """Return top-k haplotype indices with fewest opposite homozygous markers compared to genotype
+    The array of number of opposite homozygous loci for each haplotype (`opposite_homozygous`)
+    is first shuffled so that tied values are effectively randomly sampled"""
+
+    # Mask of homozygous loci in the genotype
+    homozygous_mask = (genotype == 0) | (genotype == 2)  # note: this purposefully ignores missing loci
+
+    # Select just these homozygous loci
+    g = genotype[homozygous_mask]
+    h = haplotypes[:, homozygous_mask]
+
+    # Number of opposite homozygous loci for all haplotypes
+    opposite_homozygous = np.sum(g//2 != h, axis=1)
+
+    # Shuffle indices
+    indices = np.arange(len(opposite_homozygous))
+    np.random.shuffle(indices)
+
+    # Stable argsort on the shuffled values
+    args = np.argsort(opposite_homozygous[indices], kind='stable')
+
+    # Top-k indices (fewest opposite homozygous loci)
+    return indices[args[:n_topk]]
+
+
+def save(filepath, haplotype_library):
+    """Save haplotype library
+        Note: the format of this is likely to change
+        Note: need to handle case where args.out contains an output path"""
+    f = open(filepath, 'wb')
+    pickle.dump(haplotype_library, f)
+    f.close()
+
+def load(filepath):
+    """Load haplotype library
+    Note: the format of this is likely to change"""
+    f = open(filepath, 'rb')
+    haplotype_library = pickle.load(f)
+    f.close()
+    return haplotype_library
+
 
 class HaplotypeLibrary(object):
     """A library of haplotypes
@@ -15,7 +70,7 @@ class HaplotypeLibrary(object):
     Use freeze() and unfreeze() to swap between the two states. Typically a library is
     built with append() and then frozen to enable additional functionality"""
 
-    def __init__(self, n_loci = None):
+    def __init__(self, n_loci=None):
         self._n_loci = n_loci
         self._frozen = False
         self._haplotypes = []
@@ -37,7 +92,7 @@ class HaplotypeLibrary(object):
         Note: a copy of the haplotype is taken"""
         if self._frozen:
             raise RuntimeError('Cannot append to frozen library')
-        
+
         if self.dtype is None:
             self.dtype = haplotype.dtype
 
@@ -57,7 +112,7 @@ class HaplotypeLibrary(object):
         self._identifiers = np.array(self._identifiers)
         self._frozen = True
 
-    
+
     def unfreeze(self):
         """Unfreeze the library: convert identifiers and haplotypes to lists"""
         if not self._frozen:
@@ -66,7 +121,7 @@ class HaplotypeLibrary(object):
         self._identifiers = list(self._identifiers)
         self._frozen = False
 
-    
+
     def update(self, haplotypes, identifier):
         """Update identifier's haplotypes
         'haplotypes' can be a 1d array of loci or a 2d array of shape(#haps, #loci)"""
@@ -77,7 +132,7 @@ class HaplotypeLibrary(object):
         # Use Numpy's broadcasting checks to handle mismatch of shape in the following:
         self._haplotypes[indices] = haplotypes
 
-    
+
     def exclude_identifiers(self, identifiers):
         """Return a NumPy array of haplotypes excluding specified identifiers
         'identifiers' can be a single identifier or iterable of identifiers"""
@@ -86,7 +141,7 @@ class HaplotypeLibrary(object):
         mask = ~np.isin(self._identifiers, identifiers)
         return self._haplotypes[mask]
 
-    
+
     def sample(self, n_haplotypes):
         """Return a NumPy array of randomly sampled haplotypes"""
         if not self._frozen:
@@ -96,7 +151,33 @@ class HaplotypeLibrary(object):
         sampled_indices = np.sort(np.random.choice(len(self), size=n_haplotypes, replace=False))
         return self._haplotypes[sampled_indices]
 
-    
+
+    def sample_targeted(self, n_haplotypes, genotype, n_bins, exclude_identifiers=None):
+        """Sample haplotypes that 'closely match' genotype `genotype`"""
+        if not self._frozen:
+            raise RuntimeError('Cannot sample from an unfrozen library')
+        if n_haplotypes > len(self):
+            return self._haplotypes
+
+        # Get top-k in a number of marker bins
+        n_topk = n_haplotypes  # unnecessary variable redifinition
+        indices = np.empty((n_topk, n_bins), dtype=np.int64)
+        for i, s in enumerate(bin_slices(self._n_loci, n_bins)):
+            indices[:, i] = topk_indices(genotype[s], self._haplotypes[:, s], n_topk)
+
+        # Get top n_haplotypes across the bins excluding any in exclude_ifentifiers
+        sampled_indices = set()
+        exclude_indices = set(self._indices(exclude_identifiers))
+        for idx in indices.flatten():
+            if idx not in exclude_indices:
+                sampled_indices.add(idx)
+            if len(sampled_indices) >= n_topk:
+                break
+        sampled_indices = list(sampled_indices)
+
+        return self._haplotypes[sampled_indices]
+
+
     def exclude_identifiers_and_sample(self, identifiers, n_haplotypes):
         """Return a NumPy array of (n_haplotypes) randomly sampled haplotypes
         excluding specified identifiers.
@@ -114,14 +195,14 @@ class HaplotypeLibrary(object):
         sampled_indices.sort()
         return self._haplotypes[exclude_mask][sampled_indices]
 
-    
+
     def asMatrix(self):
         """Return the NumPy array - kept for backwards compatibility"""
         if self._frozen:
             return self._haplotypes.copy()
         return np.array(self._haplotypes)
 
-    
+
     def removeMissingValues(self):
         """Replace missing values randomly with 0 or 1 with 50 % probability
         kept for backwards compatibility"""
@@ -130,7 +211,7 @@ class HaplotypeLibrary(object):
 
 
     def get_called_haplotypes(self, threshold = 0.99):
-        """Return "called" haplotypes -- these are haplotypes which only contain integer values (0,1,9). 
+        """Return "called" haplotypes -- these are haplotypes which only contain integer values (0,1,9).
         For haplotypes where there is uncertainty, a threshold is used to determine whether the value is called as a value or is missing. """
 
         if not self._frozen:
@@ -163,9 +244,11 @@ class HaplotypeLibrary(object):
         return self._haplotypes
 
 
-
     def _indices(self, identifier):
         """Get row indices associated with an identifier. These can be used for fancy indexing"""
+        # Return empty list if identifier == None
+        if not identifier:
+            return list()
         if not self._frozen:
             raise RuntimeError("Cannot get indices from an unfrozen library")
         if identifier not in self._identifiers:

@@ -6,17 +6,31 @@ from . import ProbMath
 class HaploidMarkovModel :
     def __init__(self, n_loci, error, recombination_rate = None):
 
-        self.n_loci = n_loci
-
-        if type(error) is float:
-            self.error = np.full(n_loci, error, dtype=np.float32)
-        if type(recombination_rate) is float:
-            self.recombination_rate = np.full(n_loci, recombination_rate, dtype=np.float32)
+        self.update_paramaters(n_loci, error, recombination_rate)
 
         self.directional_smoothing = self.create_directional_smoothing()
         self.apply_smoothing = self.create_apply_smoothing()
         self.apply_viterbi = self.create_viterbi_algorithm()
         self.apply_sampling = self.create_sampling_algorithm(NumbaUtils.multinomial_sample)
+
+
+    def update_paramaters(self, n_loci, error, recombination_rate = None):
+
+        self.n_loci = n_loci
+
+        if type(error) is float:
+            self.error = np.full(n_loci, error, dtype=np.float32)
+        else:
+            self.error = error
+
+        if recombination_rate is None:
+            recombination_rate = 1.0/n_loci
+
+        if type(recombination_rate) is float:
+            self.recombination_rate = np.full(n_loci, recombination_rate, dtype=np.float32)
+        else:
+            self.recombination_rate = recombination_rate
+
 
     def get_mask(self, called_haplotypes):
         return np.all(called_haplotypes != 9, axis = 0)
@@ -102,6 +116,7 @@ class HaploidMarkovModel :
 
         @jit(nopython=True, nogil=True)
         def directional_smoothing(point_estimate, recombination_rate, forward = False, backward = False):
+            
             output = np.full(point_estimate.shape, 1, dtype = np.float32)
             n_loci = point_estimate.shape[0]
 
