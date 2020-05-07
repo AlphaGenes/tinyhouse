@@ -1,6 +1,12 @@
 import numpy as np
 import numba
-from numba import jit, int8, int64, boolean, deferred_type, optional, jitclass, float32, double
+
+try:
+    from numba.experimental import jitclass
+except ModuleNotFoundError:
+    from numba import jitclass
+
+from numba import jit, int8, int64, boolean, deferred_type, optional, float32, double
 from collections import OrderedDict
 from . import InputOutput
 from . import ProbMath
