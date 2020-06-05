@@ -248,6 +248,16 @@ class Pedigree(object):
         self.args = None
         self.writeOrderList = None
 
+    def reset_families(self):
+
+        self.nGenerations = 0
+        self.generations = None
+        self.families = None
+        for ind in self:
+            ind.families = []
+
+        self.setupFamilies()
+
     def subset(self, start, stop):
         new_pedigree = Pedigree(constructor = self.constructor)
         new_pedigree.nLoci = stop - start
