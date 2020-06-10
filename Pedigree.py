@@ -185,9 +185,11 @@ class Individual(object):
 import re 
 def sorted_nicely( l , key): 
     """ Sort the given iterable in the way that humans expect.""" 
+    return sorted(l, key = lambda k: alphanum_key(key(k)))
+
+def alphanum_key(k):
     convert = lambda text: int(text) if text.isdigit() else text 
-    alphanum_key = lambda k: [ convert(c) for c in re.split('([0-9]+)', str(key(k))) ] 
-    return sorted(l, key = alphanum_key)
+    return [ convert(c) for c in re.split('([0-9]+)', str(k)) ] 
 
 
 class Generation(object):
@@ -388,9 +390,16 @@ class Pedigree(object):
             for ind in gen.individuals:
                 yield ind
 
+    def sort_individuals(self, individuals):
+
+        return {k:v for k, v in sorted(individuals.items(), key = lambda pair: alphanum_key(pair[0]))}
+
     # Generation code
 
     def setUpGenerations(self) :
+        # Try and make pedigree independent.
+        self.individuals = self.sort_individuals(self.individuals)
+
         self.nGenerations = 0
         #We can't use a simple iterator over self here, becuase __iter__ calls this function.
         for idx, ind in self.individuals.items():
