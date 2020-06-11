@@ -6,7 +6,7 @@ def time_func(text):
         def timer(*args, **kwargs):
             start_time = datetime.datetime.now()
             values = func(*args, **kwargs)
-            print(text, (datetime.datetime.now() - start_time).total_seconds())
+            print(f"{text}: {(datetime.datetime.now() - start_time).total_seconds():.2f} seconds")
             return values
         return timer
 
