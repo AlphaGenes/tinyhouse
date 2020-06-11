@@ -76,9 +76,15 @@ def readLines(fileName, startsnp, stopsnp, dtype):
         if iothreads > 1:
             # This could be more efficient, but it's dwarfed by some of the other stuff in the program.
             # i.e. line is roughly the same size as the haplotypes (2 bytes per genotype value, i.e. (space)(value); and two values per haplotype.
-            lines = [line for line in f]
-            with concurrent.futures.ProcessPoolExecutor(max_workers = iothreads) as executor:
-                output = executor.map(process_input_line, lines, itertools.repeat(startsnp), itertools.repeat(stopsnp), itertools.repeat(dtype), chunksize=1000)
+
+            all_outputs = []
+            lines = list(itertools.islice(f, 1000))
+            while len(lines) > 0:
+                with concurrent.futures.ProcessPoolExecutor(max_workers = iothreads) as executor:
+                    chunk_output = executor.map(process_input_line, lines, itertools.repeat(startsnp), itertools.repeat(stopsnp), itertools.repeat(dtype), chunksize=math.ceil(1000/iothreads))
+                all_outputs.append(chunk_output)
+                lines = list(itertools.islice(f, 1000))
+            output = itertools.chain.from_iterable(all_outputs)
 
         if iothreads <= 1:
             for line in f:
