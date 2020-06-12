@@ -252,6 +252,10 @@ class Pedigree(object):
 
     def reset_families(self):
 
+        for ind in self.individuals.values():
+            ind.families = []
+            ind.generation = None
+
         self.nGenerations = 0
         self.generations = None
         self.families = None
