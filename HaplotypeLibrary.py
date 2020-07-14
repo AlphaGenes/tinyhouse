@@ -174,8 +174,8 @@ class HaplotypeLibrary(object):
             if len(sampled_indices) >= n_topk:
                 break
         sampled_indices = list(sampled_indices)
-
-        return self._haplotypes[sampled_indices]
+        # Return HaplotypeLibrary object
+        return self._sampled_library(sampled_indices)
 
 
     def exclude_identifiers_and_sample(self, identifiers, n_haplotypes):
@@ -193,7 +193,8 @@ class HaplotypeLibrary(object):
             n_haplotypes = n_remaining_haplotypes
         sampled_indices = np.random.choice(n_remaining_haplotypes, size=n_haplotypes, replace=False)
         sampled_indices.sort()
-        return self._haplotypes[exclude_mask][sampled_indices]
+        # Return HaplotypeLibrary object
+        return self._sampled_library(sampled_indices)
 
 
     def asMatrix(self):
@@ -266,6 +267,16 @@ class HaplotypeLibrary(object):
         self._check_haplotype_dtype(haplotype)
         if haplotype.shape != expected_shape:
             raise ValueError('haplotype(s) has unexpected shape')
+
+    def _sampled_library(self, indices):
+        """Create a 'duplicated' HaplotypeLibrary consisting of specified indices only"""
+        # Create HaplotypeLibrary object to return
+        library = HaplotypeLibrary(self._n_loci)
+        library.dtype = self.dtype
+        library._haplotypes = self._haplotypes[indices]
+        library._identifiers = self._identifiers[indices]
+        library.freeze()
+        return library
 
 
 @jit(nopython=True)
