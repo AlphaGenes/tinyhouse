@@ -142,12 +142,12 @@ def set_from_genotype_probs(ind, geno_probs = None, calling_threshold = 0.1, set
             ind.dosages[:] = 2*called_values.dosages
 
         if set_genotypes:
-            ind.genotypes[:] = 2*called_values.haplotype 
-            ind.genotypes[called_values.haplotype == 9] = 9 # Correctly set missing loci.
+            ind.genotypes[:] = 2*called_values.haplotypes
+            ind.genotypes[called_values.haplotypes == 9] = 9 # Correctly set missing loci.
 
         if set_haplotypes:
-            ind.haplotypes[0][:] = called_values.haplotype
-            ind.haplotypes[1][:] = called_values.haplotype
+            ind.haplotypes[0][:] = called_values.haplotypes
+            ind.haplotypes[1][:] = called_values.haplotypes
 
     if geno_probs.shape[0] == 4:
         geno_probs = geno_probs/np.sum(geno_probs, axis = 0)
@@ -170,11 +170,11 @@ def call_genotype_probs(geno_probs, calling_threshold = 0.1) :
 
     if geno_probs.shape[0] == 2:
         # Haploid
-        HaploidValues = collections.namedtuple("HaploidValues", ["haplotype", "dosages"])
+        HaploidValues = collections.namedtuple("HaploidValues", ["haplotypes", "dosages"])
         dosages = geno_probs[1,:].copy()
-        haplotype = call_matrix(geno_probs, calling_threshold)
+        haplotypes = call_matrix(geno_probs, calling_threshold)
 
-        return HaploidValues(dosages = dosages, haplotype = haplotype)
+        return HaploidValues(dosages = dosages, haplotypes = haplotypes)
 
     if geno_probs.shape[0] == 4:
         # Haploid
