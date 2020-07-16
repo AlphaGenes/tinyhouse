@@ -157,7 +157,7 @@ class HaplotypeLibrary(object):
         if not self._frozen:
             raise RuntimeError('Cannot sample from an unfrozen library')
         if n_haplotypes > len(self):
-            return self._haplotypes
+            return self
 
         # Get top-k in a number of marker bins
         n_topk = n_haplotypes  # unnecessary variable redifinition
