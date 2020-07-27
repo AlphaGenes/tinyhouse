@@ -177,7 +177,7 @@ def call_genotype_probs(geno_probs, calling_threshold = 0.1) :
         return HaploidValues(dosages = dosages, haplotypes = haplotypes)
 
     if geno_probs.shape[0] == 4:
-        # Haploid
+        # Diploid
         DiploidValues = collections.namedtuple("DiploidValues", ["genotypes", "haplotypes", "dosages"])
 
         dosages = geno_probs[1,:] + geno_probs[2,:] + 2*geno_probs[3,:]
