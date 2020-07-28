@@ -244,6 +244,10 @@ class HaplotypeLibrary(object):
 
         return self._haplotypes
 
+    def get_identifiers(self):
+        """Get haplotype identifiers"""
+        return list(self._identifiers)
+
 
     def _indices(self, identifier):
         """Get row indices associated with an identifier. These can be used for fancy indexing"""
