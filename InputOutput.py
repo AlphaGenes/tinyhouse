@@ -207,7 +207,6 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
             pedigree.readInPedigree(ped)
 
     # This gets the attribute from args, but returns None if the atribute is not valid.
-    
     genotypes = getattr(args, "genotypes", None)    
     if genotypes is not None: 
         for geno in args.genotypes:
@@ -240,6 +239,12 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
                 readInGenotypesPlink(pedigree, plink, startsnp, stopsnp, pedigreeReadIn)
         else:
             warnings.warn("The module alphaplinkpython was not found. Plink files cannot be read in and will be ignored.")
+
+    plink = getattr(args, 'plink', None)
+    if plink is not None:
+        for file in args.plink:
+            print('PLINK')
+            pedigree.readInGenotypesPlinkPlainTxt(file, startsnp, stopsnp)
 
     #It's important that these happen after all the datafiles are read in.
     #Each read in can add individuals. This information needs to be calculated on the final pedigree.

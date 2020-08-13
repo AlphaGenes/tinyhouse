@@ -250,6 +250,8 @@ class Pedigree(object):
         self.args = None
         self.writeOrderList = None
 
+        self.allele_coding = None
+
     def reset_families(self):
 
         for ind in self.individuals.values():
@@ -599,7 +601,7 @@ class Pedigree(object):
 
 
     
-    def check_line(self, id_data, idxExpected = None, ncol = None, getInd = True):
+    def check_line(self, id_data, fileName, idxExpected=None, ncol=None, getInd=True, even_cols=True):
         idx, data = id_data
 
         if idxExpected is not None and idx != idxExpected:
@@ -609,7 +611,8 @@ class Pedigree(object):
             ncol = len(data)
         if ncol != len(data):
             raise ValueError(f"Incorrect number of columns in {fileName}. Expected {ncol} values but got {len(data)} for individual {idx}.")
-
+        if even_cols and ncol % 2 != 0:
+            raise ValueError(f"File {fileName} doesn't contain an even number of allele columns for individual {idx}.")
         
         nLoci = len(data)
         if self.nLoci == 0:
@@ -623,6 +626,115 @@ class Pedigree(object):
 
         return ind, data, ncol 
 
+
+    def update_allele_coding(self, alleles):
+        """Update allele codings with new alleles
+        self.allele_coding      - array of shape (2, n_loci) such that:
+        self.allele_coding[0]   - array of alleles that are coded as 0
+                                  (these are set to the first alleles 'seen')
+        self.allele_coding[1]   - array of alleles that are coded as 1
+                                  (these are alleles that are different from
+                                  self.allele_coding[0])
+        alleles  - alleles as read in from PLINK file
+                array of dtype np.bytes_, b'0' is 'missing'
+
+        This function is much like finding unique entries in a list:
+        only add a new item if it is different from those seen before
+        In this case, only record the first two uniques found,
+        but check there are only 2 alleles"""
+
+        # Update any missing entries in self.allele_coding[0]
+        mask = self.allele_coding[0] == b'0'
+        self.allele_coding[0, mask] = alleles[mask]
+
+        # Update entries in self.allele_coding[1] if:
+        # - the alleles have not already been seen in self.allele_coding[0]
+        # - and the entry (in self.allele_coding[1]) is missing
+        mask = self.allele_coding[1] == b'0'
+        mask &= self.allele_coding[0] != alleles
+        self.allele_coding[1, mask] = alleles[mask]
+
+        # Check for > 2 alleles at any loci. These are:
+        # - alleles that are not missing
+        # - alleles that are not in either of self.allele_coding[0] or self.allele_coding[1]
+        mask = alleles != b'0'
+        mask &= ((alleles != self.allele_coding[0]) & (alleles != self.allele_coding[1]))  # poss speedup alleles != self.allele_coding[0] done above
+        if np.sum(mask) > 0:
+            raise ValueError(f'More than two alleles found in input file(s) at loci {np.flatnonzero(mask)}')
+
+        # Check if done
+        if np.sum(self.allele_coding == b'0') == 0:
+            print('Allele coding complete')
+
+
+    def decode_alleles(self, alleles):
+        """Decode PLINK plain text alleles to AlphaImpute genotypes or haplotypes
+        handles single individuals - alleles has shape (n_loci*2, )
+        or multiple individuals    - alleles has shape (n_individuals, n_loci*2)"""
+        # 'Double' self.allele_coding as there are two allele columns at each locus
+        coding = np.repeat(self.allele_coding, 2, axis=1)
+
+        decoded = np.empty_like(alleles, dtype=np.int8)
+        decoded[alleles == coding[0]] = 0  # set alleles coded as 0
+        decoded[alleles == coding[1]] = 1  # set alleles coded as 1
+        decoded[alleles == b'0'] = 9       # convert missing (b'0' -> 9)
+
+        # Extract haplotypes
+        decoded = np.atleast_2d(decoded)
+        n_haps = decoded.shape[0] * 2
+        n_loci = decoded.shape[1] // 2
+        haplotypes = np.empty((n_haps, n_loci), dtype=np.int8)
+        haplotypes[::2] = decoded[:, ::2]
+        haplotypes[1::2] = decoded[:, 1::2]
+        # print('haps')
+        # print(haplotypes)
+
+        # Convert to genotypes
+        genotypes = decoded[:, ::2] + decoded[:, 1::2]
+        genotypes[genotypes > 9] = 9  # reset missing values
+
+        return genotypes.squeeze()
+
+
+    def readInGenotypesPlinkPlainTxt(self, file_name, startsnp=None, stopsnp=None):
+        """Read in genotypes from a PLINK plain text formated file, usually .ped"""
+        print("Reading in PLINK plain text format:", file_name)
+        data_list = MultiThreadIO.readLinesPlinkPlainTxt(file_name, startsnp=startsnp, stopsnp=stopsnp, dtype=np.bytes_)
+
+        index = 0
+        ncol = None
+        if self.nLoci != 0:
+            # Temporarilly double nLoci while reading in PLINK plain text formats 
+            # otherwise reading of multiple PLINK files results in an 'Incorrect number of values' 
+            # error in check_line()
+            self.nLoci = self.nLoci * 2
+
+        for value in data_list:
+            print(value)
+            ind, alleles, ncol = self.check_line(value, file_name, idxExpected=None, ncol=ncol, even_cols=True)
+            ind.constructInfo(self.nLoci, genotypes=True)
+            ind.fileIndex['genotypes'] = index; index += 1
+
+            # Initialise allele coding array
+            if self.allele_coding is None:
+                self.allele_coding = np.full((2, self.nLoci//2), b'0', dtype=np.bytes_)
+
+            # Update allele codes
+            self.update_allele_coding(alleles[::2])   # first allele in each pair
+            self.update_allele_coding(alleles[1::2])  # second allele
+
+            # Decode genotypes
+            ind.genotypes = self.decode_alleles(alleles)
+            print('Decoded', ind.idx, ind.genotypes)
+
+            # Need to do this after recoding genotypes
+            if np.mean(ind.genotypes == 9) < .1 :
+                ind.initHD = True
+
+        # Reset nLoci
+        self.nLoci = self.nLoci//2
+
+
     def readInGenotypes(self, fileName, startsnp=None, stopsnp = None):
 
         print("Reading in AlphaImpute Format:", fileName)
@@ -632,7 +744,7 @@ class Pedigree(object):
         data_list = MultiThreadIO.readLines(fileName, startsnp = startsnp, stopsnp = stopsnp, dtype = np.int8)
 
         for value in data_list:
-            ind, genotypes, ncol = self.check_line(value, idxExpected = None, ncol = ncol)
+            ind, genotypes, ncol = self.check_line(value, fileName, idxExpected = None, ncol = ncol)
 
             ind.constructInfo(self.nLoci, genotypes=True)
             ind.genotypes = genotypes
@@ -651,7 +763,7 @@ class Pedigree(object):
         data_list = MultiThreadIO.readLines(fileName, startsnp = startsnp, stopsnp = stopsnp, dtype = np.int8)
 
         for value in data_list:
-            ind, haplotype, ncol = self.check_line(value, idxExpected = None, ncol = ncol, getInd=False)
+            ind, haplotype, ncol = self.check_line(value, fileName, idxExpected = None, ncol = ncol, getInd=False)
             self.referencePanel.append(haplotype)
 
     def readInPhase(self, fileName, startsnp=None, stopsnp = None):
@@ -670,7 +782,7 @@ class Pedigree(object):
             else:
                 idxExpected = currentInd.idx
 
-            ind, haplotype, ncol = self.check_line(value, idxExpected = idxExpected, ncol = ncol)
+            ind, haplotype, ncol = self.check_line(value, fileName, idxExpected = idxExpected, ncol = ncol)
             currentInd = ind
 
             ind.constructInfo(self.nLoci, haps=True)
@@ -696,7 +808,7 @@ class Pedigree(object):
             else:
                 idxExpected = currentInd.idx
 
-            ind, reads, ncol = self.check_line(value, idxExpected = idxExpected, ncol = ncol)
+            ind, reads, ncol = self.check_line(value, fileName, idxExpected = idxExpected, ncol = ncol)
             currentInd = ind
 
             ind.constructInfo(self.nLoci, reads=True)
