@@ -694,6 +694,28 @@ class Pedigree(object):
         return genotypes.squeeze(), haplotypes
 
 
+    def encode_alleles(self, haplotypes):
+        """Encode haplotypes as PLINK plain text
+        handles any even number of haplotypes: haplotypes has shape (n_individuals*2, n_loci)"""
+        # 'Double' self.allele_coding as there are two allele columns at each locus in PLINK format
+        coding = np.repeat(self.allele_coding, 2, axis=1)
+
+        # haploytypes array is 'reshaped' - one individual per line, each locus is a pair of alleles
+        encoded = np.empty((len(haplotypes)//2, self.nLoci*2), dtype=np.bytes_)
+        encoded[:, ::2] = haplotypes[::2]
+        encoded[:, 1::2] = haplotypes[1::2]
+
+        # Encode
+        mask0 = encoded == b'0'  # major alleles (0)
+        mask1 = encoded == b'1'  # minor alleles (1)
+        mask9 = encoded == b'9'  # missing (9)
+        encoded[mask0] = np.broadcast_to(coding[0], encoded.shape)[mask0]
+        encoded[mask1] = np.broadcast_to(coding[1], encoded.shape)[mask1]
+        encoded[mask9] = b'0'
+
+        return encoded.squeeze()
+
+
     def readInPlinkPlainTxt(self, file_name, startsnp=None, stopsnp=None, haps=False):
         """Read in genotypes and optionally haplotypes from a PLINK plain text formated file, usually .ped"""
         print("Reading in PLINK plain text format:", file_name)
@@ -702,7 +724,7 @@ class Pedigree(object):
         index = 0
         ncol = None
         if self.nLoci != 0:
-            # Temporarilly double nLoci while reading in PLINK plain text formats 
+            # Temporarilly double nLoci while reading in PLINK plain text formats (two fields per locus)
             # otherwise reading of multiple PLINK files results in an 'Incorrect number of values' 
             # error in check_line()
             self.nLoci = self.nLoci * 2
@@ -722,12 +744,10 @@ class Pedigree(object):
 
             # Decode haplotypes and genotypes
             ind.genotypes, haplotypes = self.decode_alleles(alleles)
-
             if haps:
                 ind.haplotypes = haplotypes
 
-            # Need to do this after recoding genotypes
-            if np.mean(ind.genotypes == 9) < .1 :
+            if np.mean(ind.genotypes == 9) < .1:
                 ind.initHD = True
 
         # Reset nLoci
@@ -879,7 +899,6 @@ class Pedigree(object):
                 dosages[dosages == 9] = 1
                 data_list.append( (ind.idx, dosages) )
 
-
         MultiThreadIO.writeLines(outputFile, data_list, "{:.4f}".format)
 
         # with open(outputFile, 'w+') as f:
@@ -905,9 +924,18 @@ class Pedigree(object):
                 fill(ind.genotypes, fillValues)
                 self.writeLine(f, ind.idx, ind.genotypes, str)
 
+
+    def writePhasePlink(self, outputFile):
+        """Write phased data (i.e. haplotypes) in PLINK plain text format"""
+        data_list = []
+        for ind in self:
+            alleles = self.encode_alleles(ind.haplotypes)
+            data_list.append( (ind.idx, alleles) )
+        MultiThreadIO.writeLinesPlinkPlainTxt(outputFile, data_list)
+
+
     def writeLine(self, f, idx, data, func) :
         f.write(idx + ' ' + ' '.join(map(func, data)) + '\n')
-
 
 
 @jit(nopython=True)
