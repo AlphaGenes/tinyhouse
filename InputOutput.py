@@ -244,7 +244,7 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
     if plink is not None:
         for file in args.plink:
             print('PLINK')
-            pedigree.readInGenotypesPlinkPlainTxt(file, startsnp, stopsnp)
+            pedigree.readInPlinkPlainTxt(file, startsnp, stopsnp, haps=False)
 
     #It's important that these happen after all the datafiles are read in.
     #Each read in can add individuals. This information needs to be calculated on the final pedigree.

@@ -686,18 +686,16 @@ class Pedigree(object):
         haplotypes = np.empty((n_haps, n_loci), dtype=np.int8)
         haplotypes[::2] = decoded[:, ::2]
         haplotypes[1::2] = decoded[:, 1::2]
-        # print('haps')
-        # print(haplotypes)
-
+        
         # Convert to genotypes
         genotypes = decoded[:, ::2] + decoded[:, 1::2]
         genotypes[genotypes > 9] = 9  # reset missing values
 
-        return genotypes.squeeze()
+        return genotypes.squeeze(), haplotypes
 
 
-    def readInGenotypesPlinkPlainTxt(self, file_name, startsnp=None, stopsnp=None):
-        """Read in genotypes from a PLINK plain text formated file, usually .ped"""
+    def readInPlinkPlainTxt(self, file_name, startsnp=None, stopsnp=None, haps=False):
+        """Read in genotypes and optionally haplotypes from a PLINK plain text formated file, usually .ped"""
         print("Reading in PLINK plain text format:", file_name)
         data_list = MultiThreadIO.readLinesPlinkPlainTxt(file_name, startsnp=startsnp, stopsnp=stopsnp, dtype=np.bytes_)
 
@@ -710,7 +708,6 @@ class Pedigree(object):
             self.nLoci = self.nLoci * 2
 
         for value in data_list:
-            print(value)
             ind, alleles, ncol = self.check_line(value, file_name, idxExpected=None, ncol=ncol, even_cols=True)
             ind.constructInfo(self.nLoci, genotypes=True)
             ind.fileIndex['genotypes'] = index; index += 1
@@ -723,9 +720,11 @@ class Pedigree(object):
             self.update_allele_coding(alleles[::2])   # first allele in each pair
             self.update_allele_coding(alleles[1::2])  # second allele
 
-            # Decode genotypes
-            ind.genotypes = self.decode_alleles(alleles)
-            print('Decoded', ind.idx, ind.genotypes)
+            # Decode haplotypes and genotypes
+            ind.genotypes, haplotypes = self.decode_alleles(alleles)
+
+            if haps:
+                ind.haplotypes = haplotypes
 
             # Need to do this after recoding genotypes
             if np.mean(ind.genotypes == 9) < .1 :
