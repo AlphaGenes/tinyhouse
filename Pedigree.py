@@ -641,7 +641,7 @@ class Pedigree(object):
         This function is much like finding unique entries in a list:
         only add a new item if it is different from those seen before
         In this case, only record the first two uniques found,
-        but check there are only 2 alleles"""
+        but also check there are only 2 alleles in total"""
 
         # Update any missing entries in self.allele_coding[0]
         mask = self.allele_coding[0] == b'0'
@@ -662,9 +662,9 @@ class Pedigree(object):
         if np.sum(mask) > 0:
             raise ValueError(f'More than two alleles found in input file(s) at loci {np.flatnonzero(mask)}')
 
-        # Check if done
-        if np.sum(self.allele_coding == b'0') == 0:
-            print('Allele coding complete')
+        # Could use this check to avoid repeatedly calling this function for large datasets
+        # if np.sum(self.allele_coding == b'0') == 0:
+        #     print('Allele coding complete')
 
 
     def decode_alleles(self, alleles):
@@ -718,7 +718,6 @@ class Pedigree(object):
 
     def readInPlinkPlainTxt(self, file_name, startsnp=None, stopsnp=None, haps=False):
         """Read in genotypes and optionally haplotypes from a PLINK plain text formated file, usually .ped"""
-        print("Reading in PLINK plain text format:", file_name)
         data_list = MultiThreadIO.readLinesPlinkPlainTxt(file_name, startsnp=startsnp, stopsnp=stopsnp, dtype=np.bytes_)
 
         index = 0
@@ -732,7 +731,7 @@ class Pedigree(object):
         for value in data_list:
             ind, alleles, ncol = self.check_line(value, file_name, idxExpected=None, ncol=ncol, even_cols=True)
             ind.constructInfo(self.nLoci, genotypes=True)
-            ind.fileIndex['genotypes'] = index; index += 1
+            ind.fileIndex['genotypes'] = index; index += 1  # should this be changed to ['plink']?
 
             # Initialise allele coding array
             if self.allele_coding is None:
