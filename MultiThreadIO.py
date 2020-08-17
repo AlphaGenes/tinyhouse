@@ -80,7 +80,7 @@ def process_input_line_plink(line, startsnp, stopsnp, dtype):
     5      Phenotype value ('1' = control, '2' = case, '-9'/'0'/non-numeric = missing data if case/control)
     6-end  Genotypes as pairs of alleles (A, C, G or T)
  
-    At present this extracts individual's identifier as within family ID and genotypes
+    At present this extracts individual's identifier as the within-family ID
     """
     parts = line.split()
     idx = parts[1]         # Use within-family ID
@@ -88,7 +88,6 @@ def process_input_line_plink(line, startsnp, stopsnp, dtype):
     if startsnp is not None:
         genotypes = genotypes[startsnp*2: stopsnp*2 + 2]  # Each locus is represented by two alleles
     data = np.array(genotypes, dtype=np.bytes_)
-    print(idx, data)
     return (idx, data)
 
 
