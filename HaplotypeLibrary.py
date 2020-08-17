@@ -87,6 +87,12 @@ class HaplotypeLibrary(object):
         return len(self._haplotypes)
 
 
+    def __iter__(self):
+        """Iterate over tuple of (id, haplotype)"""
+        for i in range(len(self)):
+            yield self._identifiers[i], self._haplotypes[i]
+
+
     def append(self, haplotype, identifier=None):
         """Append a single haplotype to the library.
         Note: a copy of the haplotype is taken"""
