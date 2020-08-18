@@ -924,6 +924,22 @@ class Pedigree(object):
                 self.writeLine(f, ind.idx, ind.genotypes, str)
 
 
+    def writeGenotypesPlink(self, outputFile):
+        """Write genotypes in PLINK plain text format"""
+        data_list = []
+        for ind in self:
+            # Split genotypes into 'pseudo' haplotypes such that
+            # the first allele/haplotype of a heterozygous locus is always 0
+            missing = ind.genotypes == 9
+            h1 = ind.genotypes//2
+            h2 = ind.genotypes - h1
+            h1[missing] = 9
+            h2[missing] = 9
+            alleles = self.encode_alleles(np.vstack([h1, h2]))
+            data_list.append( (ind.idx, alleles) )
+        MultiThreadIO.writeLinesPlinkPlainTxt(outputFile, data_list)
+
+
     def writePhasePlink(self, outputFile):
         """Write phased data (i.e. haplotypes) in PLINK plain text format"""
         data_list = []
