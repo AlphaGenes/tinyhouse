@@ -240,11 +240,17 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
         else:
             warnings.warn("The module alphaplinkpython was not found. Plink files cannot be read in and will be ignored.")
 
-    plink = getattr(args, 'plink', None)
-    if plink is not None:
-        for file in args.plink:
-            print('PLINK')
-            pedigree.readInPlinkPlainTxt(file, startsnp, stopsnp, haps=False)
+    # Note: need to read .bim before .ped as the .bim sets the allele coding to use for reading the .ped
+    bim = getattr(args, 'bim', None)
+    if bim is not None:
+        for file in args.bim:
+            pedigree.readInBim(file, startsnp, stopsnp)
+
+    ped = getattr(args, 'ped', None)
+    if ped is not None:
+        for file in args.ped:
+            pedigree.readInPed(file, startsnp, stopsnp, haps=False)
+
 
     #It's important that these happen after all the datafiles are read in.
     #Each read in can add individuals. This information needs to be calculated on the final pedigree.

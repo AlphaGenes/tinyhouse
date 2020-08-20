@@ -1,5 +1,6 @@
 import numpy as np
 import numba
+import sys
 
 try:
     from numba.experimental import jitclass
@@ -716,10 +717,51 @@ class Pedigree(object):
         return encoded.squeeze()
 
 
-    def readInPlinkPlainTxt(self, file_name, startsnp=None, stopsnp=None, haps=False):
-        """Read in genotypes and optionally haplotypes from a PLINK plain text formated file, usually .ped"""
-        data_list = MultiThreadIO.readLinesPlinkPlainTxt(file_name, startsnp=startsnp, stopsnp=stopsnp, dtype=np.bytes_)
+    def check_allele_coding(self, coding):
+        """Check coding is sensible"""
+        # No monoallelic loci
+        n_monoallelic = (coding[0] == coding[1]).sum()
+        if n_monoallelic > 0:
+            print(f'Warning: allele coding has {n_monoallelic} monoallelic values') # would be nice to have filename reported
+        # No missing values
+        n_missing = (coding == b'0').sum()
+        if n_missing > 0:
+            print(f'Warning: allele coding has {n_missing} missing values')
 
+
+    def readInBim(self, file_name, startsnp=None, stopsnp=None):
+        """Read in allele coding"""
+        # Need to use startsnp and stopsnp
+        # Need to set nLoci for further checks to work
+        with open(file_name, 'r') as f:
+            code0 = np.array(f.readline().split(), dtype=np.bytes_)
+            code1 = np.array(f.readline().split(), dtype=np.bytes_)
+        coding = np.vstack([code0, code1])
+
+        nLoci = coding.shape[1]
+        if self.nLoci == 0:
+            self.nLoci = nLoci
+        if self.nLoci != nLoci:
+            print(f"Error: inconsistent number of markers in {file_name}. Expected {self.nLoci} got {nLoci}.")
+            sys.exit(2)
+
+        self.check_allele_coding(coding)
+        if self.allele_coding is None:
+            self.allele_coding = coding
+        if not np.alltrue(self.allele_coding == coding):
+            print(f'Error: inconsistent allele coding in {file_name}')
+            sys.exit(2)
+
+
+    def readInPed(self, file_name, startsnp=None, stopsnp=None, haps=False):
+        """Read in genotypes, and optionally haplotypes, from a PLINK plain text formated file, usually .ped"""
+
+        # Need to handle decoding the allele coding from the ped file itself. Expect it from bim for now
+        if self.allele_coding is None:
+            print(f'Error: no allele coding for {file_name}. Try providing one with the -bim argument.')
+            sys.exit(2)
+
+        data_list = MultiThreadIO.readLinesPlinkPlainTxt(file_name, startsnp=startsnp, stopsnp=stopsnp, dtype=np.bytes_)
         index = 0
         ncol = None
         if self.nLoci != 0:
@@ -734,12 +776,12 @@ class Pedigree(object):
             ind.fileIndex['genotypes'] = index; index += 1  # should this be changed to ['plink']?
 
             # Initialise allele coding array
-            if self.allele_coding is None:
-                self.allele_coding = np.full((2, self.nLoci//2), b'0', dtype=np.bytes_)
+            # if self.allele_coding is None:
+            #     self.allele_coding = np.full((2, self.nLoci//2), b'0', dtype=np.bytes_)
 
             # Update allele codes
-            self.update_allele_coding(alleles[::2])   # first allele in each pair
-            self.update_allele_coding(alleles[1::2])  # second allele
+            # self.update_allele_coding(alleles[::2])   # first allele in each pair
+            # self.update_allele_coding(alleles[1::2])  # second allele
 
             # Decode haplotypes and genotypes
             ind.genotypes, haplotypes = self.decode_alleles(alleles)
