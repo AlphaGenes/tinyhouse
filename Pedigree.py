@@ -619,7 +619,8 @@ class Pedigree(object):
         if self.nLoci == 0:
             self.nLoci = nLoci
         if self.nLoci != nLoci:
-            raise ValueError(f"Incorrect number of values from {fileName}. Expected {self.nLoci} got {nLoci}.")
+            print(f"Error: inconsistent number of markers or alleles in {fileName}. Expected {self.nLoci} got {nLoci}.")
+            sys.exit(2)
 
         ind = None
         if getInd :
@@ -701,7 +702,7 @@ class Pedigree(object):
         # 'Double' self.allele_coding as there are two allele columns at each locus in PLINK format
         coding = np.repeat(self.allele_coding, 2, axis=1)
 
-        # haploytypes array is 'reshaped' - one individual per line, each locus is a pair of alleles
+        # Encoded array is 'reshaped' - one individual per line, each locus is a pair of alleles
         encoded = np.empty((len(haplotypes)//2, self.nLoci*2), dtype=np.bytes_)
         encoded[:, ::2] = haplotypes[::2]
         encoded[:, 1::2] = haplotypes[1::2]
@@ -717,51 +718,69 @@ class Pedigree(object):
         return encoded.squeeze()
 
 
-    def check_allele_coding(self, coding):
+    def check_allele_coding(self, coding, filename):
         """Check coding is sensible"""
         # No monoallelic loci
         n_monoallelic = (coding[0] == coding[1]).sum()
         if n_monoallelic > 0:
-            print(f'Warning: allele coding has {n_monoallelic} monoallelic values') # would be nice to have filename reported
+            print(f'Warning: allele coding from {filename} has {n_monoallelic} monoallelic values')
         # No missing values
         n_missing = (coding == b'0').sum()
         if n_missing > 0:
-            print(f'Warning: allele coding has {n_missing} missing values')
+            print(f'Warning: allele coding from {filename} has {n_missing} missing values')
+        # Unusual letters
+        unusual = ~np.isin(coding, [b'A', b'C', b'G', b'T', b'0'])
+        if np.sum(unusual) > 0:
+            letters = ' '.join(np.unique(coding[unusual].astype(str)))
+            print(f"Error: unexpected values found in {filename}: [{letters}]")
+            sys.exit(2)
 
 
-    def readInBim(self, file_name, startsnp=None, stopsnp=None):
-        """Read in allele coding"""
-        # Need to use startsnp and stopsnp
-        # Need to set nLoci for further checks to work
-        with open(file_name, 'r') as f:
-            code0 = np.array(f.readline().split(), dtype=np.bytes_)
-            code1 = np.array(f.readline().split(), dtype=np.bytes_)
-        coding = np.vstack([code0, code1])
+    def readInBim(self, filename, startsnp=None, stopsnp=None):
+        """Read allele coding from PLINK plain text .bim format.
+        Only allele 1 and allele 2 fields are used, remaining are ignored
+        Fields
+          Chromosome code (either an integer, or 'X'/'Y'/'XY'/'MT'; '0' indicates unknown) or name
+          Variant identifier
+          Position in morgans or centimorgans (safe to use dummy value of '0')
+          Base-pair coordinate (1-based; limited to 231-2)
+          Allele 1 (corresponding to clear bits in .bed; usually minor)
+          Allele 2 (corresponding to set bits in .bed; usually major)"""
+        code0 = []
+        code1 = []
+        with open(filename, 'r') as f:
+            for line in f:
+                fields = line.split()
+                code0.append(fields[4])
+                code1.append(fields[5])
+        coding = np.vstack([np.array(code0, dtype=np.bytes_), np.array(code1, dtype=np.bytes_)])
+        if startsnp is not None:
+            coding = coding[:, startsnp: stopsnp+1]
 
         nLoci = coding.shape[1]
         if self.nLoci == 0:
             self.nLoci = nLoci
         if self.nLoci != nLoci:
-            print(f"Error: inconsistent number of markers in {file_name}. Expected {self.nLoci} got {nLoci}.")
+            print(f"Error: inconsistent number of markers in {filename}. Expected {self.nLoci} got {nLoci}.")
             sys.exit(2)
 
-        self.check_allele_coding(coding)
+        self.check_allele_coding(coding, filename)
         if self.allele_coding is None:
             self.allele_coding = coding
         if not np.alltrue(self.allele_coding == coding):
-            print(f'Error: inconsistent allele coding in {file_name}')
+            print(f'Error: inconsistent allele coding in {filename}')
             sys.exit(2)
 
 
-    def readInPed(self, file_name, startsnp=None, stopsnp=None, haps=False):
+    def readInPed(self, filename, startsnp=None, stopsnp=None, haps=False):
         """Read in genotypes, and optionally haplotypes, from a PLINK plain text formated file, usually .ped"""
 
         # Need to handle decoding the allele coding from the ped file itself. Expect it from bim for now
         if self.allele_coding is None:
-            print(f'Error: no allele coding for {file_name}. Try providing one with the -bim argument.')
+            print(f'Error: no allele coding for {filename}. Try providing one with the -bim argument.')
             sys.exit(2)
 
-        data_list = MultiThreadIO.readLinesPlinkPlainTxt(file_name, startsnp=startsnp, stopsnp=stopsnp, dtype=np.bytes_)
+        data_list = MultiThreadIO.readLinesPlinkPlainTxt(filename, startsnp=startsnp, stopsnp=stopsnp, dtype=np.bytes_)
         index = 0
         ncol = None
         if self.nLoci != 0:
@@ -771,7 +790,7 @@ class Pedigree(object):
             self.nLoci = self.nLoci * 2
 
         for value in data_list:
-            ind, alleles, ncol = self.check_line(value, file_name, idxExpected=None, ncol=ncol, even_cols=True)
+            ind, alleles, ncol = self.check_line(value, filename, idxExpected=None, ncol=ncol, even_cols=True)
             ind.constructInfo(self.nLoci, genotypes=True)
             ind.fileIndex['genotypes'] = index; index += 1  # should this be changed to ['plink']?
 
@@ -791,7 +810,7 @@ class Pedigree(object):
             if np.mean(ind.genotypes == 9) < .1:
                 ind.initHD = True
 
-        # Reset nLoci
+        # Reset nLoci back to its undoubled state
         self.nLoci = self.nLoci//2
 
 
@@ -982,13 +1001,30 @@ class Pedigree(object):
         MultiThreadIO.writeLinesPlinkPlainTxt(outputFile, data_list)
 
 
-    def writePhasePlink(self, outputFile):
-        """Write phased data (i.e. haplotypes) in PLINK plain text format"""
+    def writePhasePed(self, outputFile):
+        """Write phased data (i.e. haplotypes) in PLINK plain text .ped format"""
         data_list = []
         for ind in self:
             alleles = self.encode_alleles(ind.haplotypes)
             data_list.append( (ind.idx, alleles) )
         MultiThreadIO.writeLinesPlinkPlainTxt(outputFile, data_list)
+
+
+    def writeBim(self, outputFile):
+        """Write allele coding to PLINK plain text .bim format.
+        Only base-pair, allele 1 and allele 2 are written, remaining fields are set to 0
+        Fields
+          Chromosome code (either an integer, or 'X'/'Y'/'XY'/'MT'; '0' indicates unknown) or name
+          Variant identifier
+          Position in morgans or centimorgans (safe to use dummy value of '0')
+          Base-pair coordinate (1-based; limited to 231-2)
+          Allele 1 (corresponding to clear bits in .bed; usually minor)
+          Allele 2 (corresponding to set bits in .bed; usually major)"""
+        with open(outputFile, 'w+') as f:
+            for i in range(self.nLoci):
+                allele0 = self.allele_coding[0, i].astype(str)
+                allele1 = self.allele_coding[1, i].astype(str)
+                f.write(f'0 0 0 {i+1} {allele0} {allele1}\n')
 
 
     def writeLine(self, f, idx, data, func) :
