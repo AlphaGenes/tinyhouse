@@ -698,12 +698,15 @@ class Pedigree(object):
 
     def encode_alleles(self, haplotypes):
         """Encode haplotypes as PLINK plain text
-        handles any even number of haplotypes: haplotypes has shape (n_individuals*2, n_loci)"""
+        handles any even number of haplotypes with shape (n_individuals*2, n_loci)"""
+        assert len(haplotypes) % 2 == 0
+        assert len(haplotypes[0])== self.nLoci
         # 'Double' self.allele_coding as there are two allele columns at each locus in PLINK format
         coding = np.repeat(self.allele_coding, 2, axis=1)
 
         # Encoded array is 'reshaped' - one individual per line, each locus is a pair of alleles
         encoded = np.empty((len(haplotypes)//2, self.nLoci*2), dtype=np.bytes_)
+        # 'Splice' haplotypes into (adjacent) pairs of alleles
         encoded[:, ::2] = haplotypes[::2]
         encoded[:, 1::2] = haplotypes[1::2]
 
@@ -777,7 +780,7 @@ class Pedigree(object):
 
         # Need to handle decoding the allele coding from the ped file itself. Expect it from bim for now
         if self.allele_coding is None:
-            print(f'Error: no allele coding for {filename}. Try providing one with the -bim argument.')
+            print(f'ERROR: no allele coding for {filename}. Try providing one with the -bim option\nExiting...')
             sys.exit(2)
 
         data_list = MultiThreadIO.readLinesPlinkPlainTxt(filename, startsnp=startsnp, stopsnp=stopsnp, dtype=np.bytes_)
@@ -792,7 +795,7 @@ class Pedigree(object):
         for value in data_list:
             ind, alleles, ncol = self.check_line(value, filename, idxExpected=None, ncol=ncol, even_cols=True)
             ind.constructInfo(self.nLoci, genotypes=True)
-            ind.fileIndex['genotypes'] = index; index += 1  # should this be changed to ['plink']?
+            ind.fileIndex['plink'] = index; index += 1
 
             # Initialise allele coding array
             # if self.allele_coding is None:
@@ -985,7 +988,7 @@ class Pedigree(object):
                 self.writeLine(f, ind.idx, ind.genotypes, str)
 
 
-    def writeGenotypesPlink(self, outputFile):
+    def writeGenotypesPed(self, outputFile):
         """Write genotypes in PLINK plain text format"""
         data_list = []
         for ind in self:
