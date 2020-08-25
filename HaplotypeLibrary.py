@@ -43,23 +43,6 @@ def topk_indices(genotype, haplotypes, n_topk):
     return indices[args[:n_topk]]
 
 
-def save(filepath, haplotype_library):
-    """Save haplotype library
-        Note: the format of this is likely to change
-        Note: need to handle case where args.out contains an output path"""
-    f = open(filepath, 'wb')
-    pickle.dump(haplotype_library, f)
-    f.close()
-
-def load(filepath):
-    """Load haplotype library
-    Note: the format of this is likely to change"""
-    f = open(filepath, 'rb')
-    haplotype_library = pickle.load(f)
-    f.close()
-    return haplotype_library
-
-
 class HaplotypeLibrary(object):
     """A library of haplotypes
     Each haplotype can have an identifier (any Python object, but typically a str or int)
