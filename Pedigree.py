@@ -79,6 +79,7 @@ class Individual(object):
         self.imputationAncestors = [] #This is a list of lists. Either length 0, length 1 or length 2.
         self.selfingGeneration = None
 
+
         self.sire = None
         self.dam = None
         self.idx = idx # User inputed string identifier
@@ -180,6 +181,16 @@ class Individual(object):
         return self.genotypedFounderStatus
     def isGenotypedFounder(self):
         return (self.getGenotypedFounderStatus() == 1)
+
+
+class PlantImputeIndividual(Individual):
+    """Simple derived class for AlphaPlantImpute2
+    with some extra member variables"""
+    def __init__(self, idx, idn):
+        super().__init__(idx, idn)
+        self.founders = []
+        self.descendants = []
+
 
 # Not sure of the code source: https://blog.codinghorror.com/sorting-for-humans-natural-sort-order/
 # Slightly modified.
