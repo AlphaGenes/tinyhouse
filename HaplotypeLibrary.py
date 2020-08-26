@@ -131,6 +131,15 @@ class HaplotypeLibrary(object):
         return self._haplotypes[mask]
 
 
+    def sample_only_identifiers(self, identifiers):
+        """Returns HaplotypeLibrary object of haplotypes only including specified identifiers
+        'identifiers' can be a single identifier or iterable of identifiers"""
+        if not self._frozen:
+            raise RuntimeError('Cannot exclude from an unfrozen library')
+        mask = np.isin(self._identifiers, identifiers)
+        return self._sampled_library(mask)
+
+
     def sample(self, n_haplotypes):
         """Return a NumPy array of randomly sampled haplotypes"""
         if not self._frozen:
