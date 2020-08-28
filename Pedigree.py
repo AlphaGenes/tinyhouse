@@ -935,7 +935,6 @@ class Pedigree(object):
                 f.write(ind.idx + ' ' + sire + ' ' + dam + '\n')
 
 
-
     def writeGenotypes(self, outputFile):
 
         data_list = []
@@ -943,9 +942,7 @@ class Pedigree(object):
             data_list.append( (ind.idx, ind.genotypes) )
 
         MultiThreadIO.writeLines(outputFile, data_list, str)
-        # with open(outputFile, 'w+') as f:
-        #     for idx, ind in self.individuals.items():
-        #         self.writeLine(f, ind.idx, ind.genotypes, str)
+
 
     def writePhase(self, outputFile):
         data_list = []
@@ -954,13 +951,6 @@ class Pedigree(object):
             data_list.append( (ind.idx, ind.haplotypes[1]) )
 
         MultiThreadIO.writeLines(outputFile, data_list, str)
-
-        # with open(outputFile, 'w+') as f:
-        #     for idx, ind in self.individuals.items():
-
-        #         self.writeLine(f, ind.idx, ind.haplotypes[0], str)
-        #         self.writeLine(f, ind.idx, ind.haplotypes[1], str)
-
 
 
     def writeDosages(self, outputFile):
@@ -974,15 +964,6 @@ class Pedigree(object):
                 data_list.append( (ind.idx, dosages) )
 
         MultiThreadIO.writeLines(outputFile, data_list, "{:.4f}".format)
-
-        # with open(outputFile, 'w+') as f:
-        #     for idx, ind in self.individuals.items():
-        #         if ind.dosages is not None:
-        #             dosages = ind.dosages
-        #         else: 
-        #             dosages = ind.genotypes.copy()
-        #             dosages[dosages == 9] = 1
-        #         self.writeLine(f, ind.idx, dosages, "{:.4f}".format)
 
 
     def writeGenotypes_prefil(self, outputFile):
