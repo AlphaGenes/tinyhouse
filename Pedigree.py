@@ -833,7 +833,7 @@ class Pedigree(object):
 
     def readInGenotypes(self, fileName, startsnp=None, stopsnp = None):
 
-        print("Reading in AlphaImpute Format:", fileName)
+        print("Reading in AlphaImpute format:", fileName)
         index = 0
         ncol = None
 
@@ -863,7 +863,6 @@ class Pedigree(object):
             self.referencePanel.append(haplotype)
 
     def readInPhase(self, fileName, startsnp=None, stopsnp = None):
-        print("Reading in phase data:", fileName)
         index = 0
         ncol = None
 
