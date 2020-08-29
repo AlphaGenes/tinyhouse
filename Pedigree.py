@@ -786,11 +786,13 @@ class Pedigree(object):
             sys.exit(2)
 
 
-    def readInPed(self, filename, startsnp=None, stopsnp=None, haps=False):
+    def readInPed(self, filename, startsnp=None, stopsnp=None, haps=False, get_coding=False):
         """Read in genotypes, and optionally haplotypes, from a PLINK plain text formated file, usually .ped"""
 
+        print(f'readInPed: reading {filename} with get_coding == {get_coding}')
+
         # Need to handle decoding the allele coding from the ped file itself. Expect it from bim for now
-        if self.allele_coding is None:
+        if not get_coding and self.allele_coding is None:
             print(f'ERROR: no allele coding for {filename}. Try providing one with the -bim option\nExiting...')
             sys.exit(2)
 
@@ -808,13 +810,14 @@ class Pedigree(object):
             ind.constructInfo(self.nLoci, genotypes=True)
             ind.fileIndex['plink'] = index; index += 1
 
-            # Initialise allele coding array
-            # if self.allele_coding is None:
-            #     self.allele_coding = np.full((2, self.nLoci//2), b'0', dtype=np.bytes_)
+            if get_coding:
+                # Initialise allele coding array
+                if self.allele_coding is None:
+                    self.allele_coding = np.full((2, self.nLoci//2), b'0', dtype=np.bytes_)
 
-            # Update allele codes
-            # self.update_allele_coding(alleles[::2])   # first allele in each pair
-            # self.update_allele_coding(alleles[1::2])  # second allele
+                # Update allele codes
+                self.update_allele_coding(alleles[::2])   # first allele in each pair
+                self.update_allele_coding(alleles[1::2])  # second allele
 
             # Decode haplotypes and genotypes
             ind.genotypes, haplotypes = self.decode_alleles(alleles)

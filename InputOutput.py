@@ -184,7 +184,7 @@ def setNumbaSeeds(seed):
     np.random.seed(seed)
     random.seed(seed)
 
-def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, reads = False) :
+def readInPedigreeFromInputs(pedigree, args, genotypes=True, haps=False, reads=False, get_coding=False):
     # Try catch is incase the program does not have a seed option.
     seed = getattr(args, "seed", None)
 
@@ -249,8 +249,7 @@ def readInPedigreeFromInputs(pedigree, args, genotypes = True, haps = False, rea
     ped = getattr(args, 'ped', None)
     if ped is not None:
         for file in args.ped:
-            pedigree.readInPed(file, startsnp, stopsnp, haps=False)
-
+            pedigree.readInPed(file, startsnp, stopsnp, haps=False, get_coding=get_coding)
 
     #It's important that these happen after all the datafiles are read in.
     #Each read in can add individuals. This information needs to be calculated on the final pedigree.
