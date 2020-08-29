@@ -14,7 +14,7 @@ def convert_data_to_line_plink(data_tuple, fmt):
     return f"0 {idx} 0 0 0 0  {' '.join(data.astype(fmt))}\n"
 
 def writeLines(fileName, data_list, fmt, converter=convert_data_to_line):
-    print(f"Writing results to: {fileName}")
+    # print(f"Writing results to: {fileName}")
     try:
         iothreads = InputOutput.args.iothreads
     except AttributeError as error:
@@ -80,7 +80,7 @@ def process_input_line_plink(line, startsnp, stopsnp, dtype):
     5      Phenotype value ('1' = control, '2' = case, '-9'/'0'/non-numeric = missing data if case/control)
     6-end  Genotypes as pairs of alleles (A, C, G or T)
  
-    At present this extracts individual's identifier as the within-family ID
+    At present, this extracts individual's identifier as the within-family ID
     """
     parts = line.split()
     idx = parts[1]         # Use within-family ID
