@@ -572,7 +572,8 @@ class Pedigree(object):
                 inbred, outbred = {'dh', 'inbred'}, {'outbred'}
                 expected_entries = male | female | inbred | outbred
                 if parts[3].lower() not in expected_entries:
-                    raise ValueError(f"Unexpected entry in pedigree file, fourth field: '{parts[3]}'")
+                    print(f"ERROR: unexpected entry in pedigree file, fourth field: '{parts[3]}'\nExiting...")
+                    sys.exit(2)
                 # Sex
                 if parts[3].lower() in male:
                     ind.sex = 0
@@ -597,7 +598,8 @@ class Pedigree(object):
             if self.nLoci == 0:
                 self.nLoci = nLoci
             if self.nLoci != nLoci:
-                raise ValueError(f"Incorrect number of loci when reading in plink file. Expected {self.nLoci} got {nLoci}.")
+                print(f"ERROR: incorrect number of loci when reading in plink file. Expected {self.nLoci} got {nLoci}.\nExiting...")
+                sys.exit(2)
             if idx not in self.individuals:
                 self.individuals[idx] = self.constructor(idx, self.maxIdn)
                 self.maxIdn += 1
@@ -617,20 +619,22 @@ class Pedigree(object):
         idx, data = id_data
 
         if idxExpected is not None and idx != idxExpected:
-            raise ValueError(f"Expected individual {idxExpected} but got individual {idx}")
-
+            print(f"ERROR: Expected individual {idxExpected} but got individual {idx}.\nExiting...")
+            sys.exit(2)
         if ncol is None:
             ncol = len(data)
         if ncol != len(data):
-            raise ValueError(f"Incorrect number of columns in {fileName}. Expected {ncol} values but got {len(data)} for individual {idx}.")
+            print(f"ERROR: incorrect number of columns in {fileName}. Expected {ncol} values but got {len(data)} for individual {idx}.\nExiting...")
+            sys.exit(2)
         if even_cols and ncol % 2 != 0:
-            raise ValueError(f"File {fileName} doesn't contain an even number of allele columns for individual {idx}.")
+            print(f"ERROR: file {fileName} doesn't contain an even number of allele columns for individual {idx}.\nExiting...")
+            sys.exit(2)
         
         nLoci = len(data)
         if self.nLoci == 0:
             self.nLoci = nLoci
         if self.nLoci != nLoci:
-            print(f"Error: inconsistent number of markers or alleles in {fileName}. Expected {self.nLoci} got {nLoci}.")
+            print(f"ERROR: inconsistent number of markers or alleles in {fileName}. Expected {self.nLoci} got {nLoci}.")
             sys.exit(2)
 
         ind = None
@@ -673,7 +677,8 @@ class Pedigree(object):
         mask = alleles != b'0'
         mask &= ((alleles != self.allele_coding[0]) & (alleles != self.allele_coding[1]))  # poss speedup alleles != self.allele_coding[0] done above
         if np.sum(mask) > 0:
-            raise ValueError(f'More than two alleles found in input file(s) at loci {np.flatnonzero(mask)}')
+            print(f'ERROR: more than two alleles found in input file(s) at loci {np.flatnonzero(mask)}\nExiting...')
+            sys.exit(2)
 
         # Could use this check to avoid repeatedly calling this function for large datasets
         # if np.sum(self.allele_coding == b'0') == 0:
@@ -712,6 +717,7 @@ class Pedigree(object):
         handles any even number of haplotypes with shape (n_individuals*2, n_loci)"""
         assert len(haplotypes) % 2 == 0
         assert len(haplotypes[0])== self.nLoci
+
         # 'Double' self.allele_coding as there are two allele columns at each locus in PLINK format
         coding = np.repeat(self.allele_coding, 2, axis=1)
 
@@ -737,16 +743,17 @@ class Pedigree(object):
         # No monoallelic loci
         n_monoallelic = (coding[0] == coding[1]).sum()
         if n_monoallelic > 0:
-            print(f'Warning: allele coding from {filename} has {n_monoallelic} monoallelic values')
+            print(f'WARNING: allele coding from {filename} has {n_monoallelic} monoallelic loci')
         # No missing values
         n_missing = (coding == b'0').sum()
         if n_missing > 0:
-            print(f'Warning: allele coding from {filename} has {n_missing} missing values')
+            print(f'WARNING: allele coding from {filename} has {n_missing} missing values')
         # Unusual letters
         unusual = ~np.isin(coding, [b'A', b'C', b'G', b'T', b'0'])
         if np.sum(unusual) > 0:
             letters = ' '.join(np.unique(coding[unusual].astype(str)))
-            print(f"Error: unexpected values found in {filename}: [{letters}]")
+            print(f'ERROR: unexpected values found in {filename}: [{letters}].\n'
+                  f'Please check the file is in PLINK .ped format\nExiting...')
             sys.exit(2)
 
 
@@ -775,14 +782,14 @@ class Pedigree(object):
         if self.nLoci == 0:
             self.nLoci = nLoci
         if self.nLoci != nLoci:
-            print(f"Error: inconsistent number of markers in {filename}. Expected {self.nLoci} got {nLoci}.")
+            print(f"ERROR: inconsistent number of markers in {filename}. Expected {self.nLoci} got {nLoci}.")
             sys.exit(2)
 
         self.check_allele_coding(coding, filename)
         if self.allele_coding is None:
             self.allele_coding = coding
         if not np.alltrue(self.allele_coding == coding):
-            print(f'Error: inconsistent allele coding in {filename}')
+            print(f'ERROR: inconsistent allele coding in {filename}')
             sys.exit(2)
 
 
@@ -793,7 +800,7 @@ class Pedigree(object):
 
         # Need to handle decoding the allele coding from the ped file itself. Expect it from bim for now
         if not get_coding and self.allele_coding is None:
-            print(f'ERROR: no allele coding for {filename}. Try providing one with the -bim option\nExiting...')
+            print(f': no allele coding for {filename}. Try providing one with the -bim option\nExiting...')
             sys.exit(2)
 
         data_list = MultiThreadIO.readLinesPlinkPlainTxt(filename, startsnp=startsnp, stopsnp=stopsnp, dtype=np.bytes_)
