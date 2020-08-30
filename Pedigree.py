@@ -796,7 +796,8 @@ class Pedigree(object):
     def readInPed(self, filename, startsnp=None, stopsnp=None, haps=False, get_coding=False):
         """Read in genotypes, and optionally haplotypes, from a PLINK plain text formated file, usually .ped"""
 
-        print(f'readInPed: reading {filename} with get_coding == {get_coding}')
+        print(f'Reading in PLINK .ped format: {filename}')
+        # print(f'readInPed: reading {filename} with get_coding == {get_coding}')
 
         # Need to handle decoding the allele coding from the ped file itself. Expect it from bim for now
         if not get_coding and self.allele_coding is None:
@@ -955,9 +956,13 @@ class Pedigree(object):
 
     def writePhase(self, outputFile):
         data_list = []
-        for ind in self :
-            data_list.append( (ind.idx, ind.haplotypes[0]) )
-            data_list.append( (ind.idx, ind.haplotypes[1]) )
+        for ind in self:
+            if ind.haplotypes.ndim == 2:  # diploid
+                data_list.append((ind.idx, ind.haplotypes[0]))
+                data_list.append((ind.idx, ind.haplotypes[1]))
+            elif ind.haplotypes.ndim == 1:  # haploid
+                data_list.append((ind.idx, ind.haplotypes))
+                data_list.append((ind.idx, ind.haplotypes))
 
         MultiThreadIO.writeLines(outputFile, data_list, str)
 
@@ -1009,8 +1014,13 @@ class Pedigree(object):
         """Write phased data (i.e. haplotypes) in PLINK plain text .ped format"""
         data_list = []
         for ind in self:
-            alleles = self.encode_alleles(ind.haplotypes)
+            if ind.haplotypes.ndim == 2:  # diploid
+                alleles = self.encode_alleles(ind.haplotypes)
+            elif ind.haplotypes.ndim == 1:  # haploid
+                diploid = np.vstack([ind.haplotypes, ind.haplotypes])
+                alleles = self.encode_alleles(diploid)
             data_list.append( (ind.idx, alleles) )
+
         MultiThreadIO.writeLinesPlinkPlainTxt(outputFile, data_list)
 
 
