@@ -686,7 +686,7 @@ class Pedigree(object):
 
 
     def decode_alleles(self, alleles):
-        """Decode PLINK plain text alleles to AlphaImpute genotypes or haplotypes
+        """Decode PLINK plain text alleles to AlphaGenes genotypes or haplotypes
         handles single individuals - alleles has shape (n_loci*2, )
         or multiple individuals    - alleles has shape (n_individuals, n_loci*2)"""
         # 'Double' self.allele_coding as there are two allele columns at each locus
@@ -841,7 +841,7 @@ class Pedigree(object):
 
     def readInGenotypes(self, fileName, startsnp=None, stopsnp = None):
 
-        print("Reading in AlphaImpute format:", fileName)
+        print("Reading in AlphaGenes format:", fileName)
         index = 0
         ncol = None
 
