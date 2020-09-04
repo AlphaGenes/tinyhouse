@@ -87,8 +87,8 @@ def get_input_options():
     parse_dictionary["seqfile"] = lambda parser: parser.add_argument('-seqfile', default=None, required=False, type=str, nargs="*", help='A sequence data file.')
     parse_dictionary["pedigree"] = lambda parser: parser.add_argument('-pedigree',default=None, required=False, type=str, nargs="*", help='A pedigree file in AlphaGenes format.')
     parse_dictionary["phasefile"] = lambda parser: parser.add_argument('-phasefile',default=None, required=False, type=str, nargs="*", help='A phase file in AlphaGenes format.')
-    parse_dictionary["startsnp"] = lambda parser: parser.add_argument('-startsnp',default=None, required=False, type=int, help='The first marker to consider. The first marker in the file is marker "1".')
-    parse_dictionary["stopsnp"] = lambda parser: parser.add_argument('-stopsnp',default=None, required=False, type=int, help='The last marker to consider.')
+    parse_dictionary["startsnp"] = lambda parser: parser.add_argument('-startsnp',default=None, required=False, type=int, help="The first marker to consider. The first marker in the file is marker '1'. Default: 1.")
+    parse_dictionary["stopsnp"] = lambda parser: parser.add_argument('-stopsnp',default=None, required=False, type=int, help='The last marker to consider. Default: all markers considered.')
     parse_dictionary["seed"] = lambda parser: parser.add_argument('-seed',default=None, required=False, type=int, help='A random seed to use for debugging.')
     
     return parse_dictionary
