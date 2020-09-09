@@ -740,14 +740,12 @@ class Pedigree(object):
 
     def check_allele_coding(self, coding, filename):
         """Check coding is sensible"""
-        # No monoallelic loci
-        n_monoallelic = (coding[0] == coding[1]).sum()
+        # Monoallelic loci
+        n_monoallelic = (coding[1] == b'0').sum()
         if n_monoallelic > 0:
             print(f'WARNING: allele coding from {filename} has {n_monoallelic} monoallelic loci')
-        # No missing values
-        n_missing = (coding == b'0').sum()
-        if n_missing > 0:
-            print(f'WARNING: allele coding from {filename} has {n_missing} missing values')
+            mask = (coding == b'0')[0] | (coding == b'0')[1]
+            print(coding[:, mask])
         # Unusual letters
         unusual = ~np.isin(coding, [b'A', b'C', b'G', b'T', b'0'])
         if np.sum(unusual) > 0:
@@ -797,12 +795,11 @@ class Pedigree(object):
         """Read in genotypes, and optionally haplotypes, from a PLINK plain text formated file, usually .ped"""
 
         print(f'Reading in PLINK .ped format: {filename}')
-        # print(f'readInPed: reading {filename} with get_coding == {get_coding}')
+        print(f'readInPed: reading {filename} with get_coding == {get_coding}')
 
-        # Need to handle decoding the allele coding from the ped file itself. Expect it from bim for now
+        # Check the allele coding is to be got from file or is provided via self.allele_coding
         if not get_coding and self.allele_coding is None:
-            print(f': no allele coding for {filename}. Try providing one with the -bim option\nExiting...')
-            sys.exit(2)
+            raise ValueError('readInPed () called with no allele coding')
 
         data_list = MultiThreadIO.readLinesPlinkPlainTxt(filename, startsnp=startsnp, stopsnp=stopsnp, dtype=np.bytes_)
         index = 0
@@ -834,6 +831,9 @@ class Pedigree(object):
 
             if np.mean(ind.genotypes == 9) < .1:
                 ind.initHD = True
+
+        # Check allele coding
+        self.check_allele_coding(self.allele_coding, filename)
 
         # Reset nLoci back to its undoubled state
         self.nLoci = self.nLoci//2
