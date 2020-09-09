@@ -660,6 +660,10 @@ class Pedigree(object):
         In this case, only record the first two uniques found,
         but also check there are only 2 alleles in total"""
 
+        # If allele coding is complete then skip the update
+        if self.allele_coding_complete():
+            return
+
         # Update any missing entries in self.allele_coding[0]
         mask = self.allele_coding[0] == b'0'
         self.allele_coding[0, mask] = alleles[mask]
@@ -680,9 +684,13 @@ class Pedigree(object):
             print(f'ERROR: more than two alleles found in input file(s) at loci {np.flatnonzero(mask)}\nExiting...')
             sys.exit(2)
 
-        # Could use this check to avoid repeatedly calling this function for large datasets
-        # if np.sum(self.allele_coding == b'0') == 0:
-        #     print('Allele coding complete')
+
+    def allele_coding_complete(self):
+        """Check whether the allele coding is complete (contains no missing values)"""
+        if self.allele_coding is None:
+            return False
+        else:
+            return np.sum(self.allele_coding == b'0') == 0
 
 
     def decode_alleles(self, alleles):
@@ -692,7 +700,7 @@ class Pedigree(object):
         # 'Double' self.allele_coding as there are two allele columns at each locus
         coding = np.repeat(self.allele_coding, 2, axis=1)
 
-        decoded = np.empty_like(alleles, dtype=np.int8)
+        decoded = np.full_like(alleles, b'0', dtype=np.int8)
         decoded[alleles == coding[0]] = 0  # set alleles coded as 0
         decoded[alleles == coding[1]] = 1  # set alleles coded as 1
         decoded[alleles == b'0'] = 9       # convert missing (b'0' -> 9)
@@ -701,7 +709,7 @@ class Pedigree(object):
         decoded = np.atleast_2d(decoded)
         n_haps = decoded.shape[0] * 2
         n_loci = decoded.shape[1] // 2
-        haplotypes = np.empty((n_haps, n_loci), dtype=np.int8)
+        haplotypes = np.full((n_haps, n_loci), 9, dtype=np.int8)
         haplotypes[::2] = decoded[:, ::2]
         haplotypes[1::2] = decoded[:, 1::2]
         
@@ -722,7 +730,7 @@ class Pedigree(object):
         coding = np.repeat(self.allele_coding, 2, axis=1)
 
         # Encoded array is 'reshaped' - one individual per line, each locus is a pair of alleles
-        encoded = np.empty((len(haplotypes)//2, self.nLoci*2), dtype=np.bytes_)
+        encoded = np.full((len(haplotypes)//2, self.nLoci*2), b'0', dtype=np.bytes_)
         # 'Splice' haplotypes into (adjacent) pairs of alleles
         encoded[:, ::2] = haplotypes[::2]
         encoded[:, 1::2] = haplotypes[1::2]
@@ -738,21 +746,23 @@ class Pedigree(object):
         return encoded.squeeze()
 
 
-    def check_allele_coding(self, coding, filename):
+    def check_allele_coding(self, filename):
         """Check coding is sensible"""
-        # Monoallelic loci
-        n_monoallelic = (coding[1] == b'0').sum()
-        if n_monoallelic > 0:
-            print(f'WARNING: allele coding from {filename} has {n_monoallelic} monoallelic loci')
-            mask = (coding == b'0')[0] | (coding == b'0')[1]
-            print(coding[:, mask])
+        # Monoallelic loci: 
+        #   allele_coding[0] filled, but allele_coding[1] unfilled, i.e. coding[1] == b'0'
+        n_monoallelic = (self.allele_coding[1] == b'0').sum()
         # Unusual letters
-        unusual = ~np.isin(coding, [b'A', b'C', b'G', b'T', b'0'])
+        unusual = ~np.isin(self.allele_coding, [b'A', b'C', b'G', b'T', b'0'])  # unexpected letters
         if np.sum(unusual) > 0:
-            letters = ' '.join(np.unique(coding[unusual].astype(str)))
+            letters = ' '.join(np.unique(self.allele_coding[unusual].astype(str)))
             print(f'ERROR: unexpected values found in {filename}: [{letters}].\n'
                   f'Please check the file is in PLINK .ped format\nExiting...')
             sys.exit(2)
+        elif n_monoallelic > 0:
+            print(f'WARNING: allele coding from {filename} has {n_monoallelic} monoallelic loci')
+        else:
+            # Reassuring message if tests pass
+            print('Allele coding OK')
 
 
     def readInBim(self, filename, startsnp=None, stopsnp=None):
@@ -783,7 +793,7 @@ class Pedigree(object):
             print(f"ERROR: inconsistent number of markers in {filename}. Expected {self.nLoci} got {nLoci}.")
             sys.exit(2)
 
-        self.check_allele_coding(coding, filename)
+        self.check_allele_coding(filename)
         if self.allele_coding is None:
             self.allele_coding = coding
         if not np.alltrue(self.allele_coding == coding):
@@ -791,14 +801,15 @@ class Pedigree(object):
             sys.exit(2)
 
 
-    def readInPed(self, filename, startsnp=None, stopsnp=None, haps=False, get_coding=False):
-        """Read in genotypes, and optionally haplotypes, from a PLINK plain text formated file, usually .ped"""
+    def readInPed(self, filename, startsnp=None, stopsnp=None, haps=False, update_coding=False):
+        """Read in genotypes, and optionally haplotypes, from a PLINK plain text formated file, usually .ped
+        If update_coding is True, the allele coding is interpreted from the .ped file and any coding
+        in self.allele_coding is updated (if the coding is incomplete).
+        Note: to force a full read of the allele coding set self.allele_codine = None first"""
 
         print(f'Reading in PLINK .ped format: {filename}')
-        print(f'readInPed: reading {filename} with get_coding == {get_coding}')
-
         # Check the allele coding is to be got from file or is provided via self.allele_coding
-        if not get_coding and self.allele_coding is None:
+        if not update_coding and self.allele_coding is None:
             raise ValueError('readInPed () called with no allele coding')
 
         data_list = MultiThreadIO.readLinesPlinkPlainTxt(filename, startsnp=startsnp, stopsnp=stopsnp, dtype=np.bytes_)
@@ -810,17 +821,25 @@ class Pedigree(object):
             # error in check_line()
             self.nLoci = self.nLoci * 2
 
+        if not self.allele_coding_complete():
+            if self.allele_coding is None:
+                print(f'Interpreting allele coding from {filename}')
+            else:
+                print(f'Updating allele coding with coding from {filename}')
+
         for value in data_list:
             ind, alleles, ncol = self.check_line(value, filename, idxExpected=None, ncol=ncol, even_cols=True)
             ind.constructInfo(self.nLoci, genotypes=True)
             ind.fileIndex['plink'] = index; index += 1
 
-            if get_coding:
-                # Initialise allele coding array
+            if update_coding:
+                # Initialise allele coding array if none exists
+                # read_or_create = 'Reading' if self.allele_coding is None else 'Updating'
                 if self.allele_coding is None:
                     self.allele_coding = np.full((2, self.nLoci//2), b'0', dtype=np.bytes_)
 
                 # Update allele codes
+                # print(f'{read_or_create} allele coding with coding from {filename}')
                 self.update_allele_coding(alleles[::2])   # first allele in each pair
                 self.update_allele_coding(alleles[1::2])  # second allele
 
@@ -833,7 +852,7 @@ class Pedigree(object):
                 ind.initHD = True
 
         # Check allele coding
-        self.check_allele_coding(self.allele_coding, filename)
+        self.check_allele_coding(filename)
 
         # Reset nLoci back to its undoubled state
         self.nLoci = self.nLoci//2
