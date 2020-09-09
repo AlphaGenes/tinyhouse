@@ -765,42 +765,6 @@ class Pedigree(object):
             print('Allele coding OK')
 
 
-    def readInBim(self, filename, startsnp=None, stopsnp=None):
-        """Read allele coding from PLINK plain text .bim format.
-        Only allele 1 and allele 2 fields are used, remaining are ignored
-        Fields
-          Chromosome code (either an integer, or 'X'/'Y'/'XY'/'MT'; '0' indicates unknown) or name
-          Variant identifier
-          Position in morgans or centimorgans (safe to use dummy value of '0')
-          Base-pair coordinate (1-based; limited to 231-2)
-          Allele 1 (corresponding to clear bits in .bed; usually minor)
-          Allele 2 (corresponding to set bits in .bed; usually major)"""
-        code0 = []
-        code1 = []
-        with open(filename, 'r') as f:
-            for line in f:
-                fields = line.split()
-                code0.append(fields[4])
-                code1.append(fields[5])
-        coding = np.vstack([np.array(code0, dtype=np.bytes_), np.array(code1, dtype=np.bytes_)])
-        if startsnp is not None:
-            coding = coding[:, startsnp: stopsnp+1]
-
-        nLoci = coding.shape[1]
-        if self.nLoci == 0:
-            self.nLoci = nLoci
-        if self.nLoci != nLoci:
-            print(f"ERROR: inconsistent number of markers in {filename}. Expected {self.nLoci} got {nLoci}.")
-            sys.exit(2)
-
-        self.check_allele_coding(filename)
-        if self.allele_coding is None:
-            self.allele_coding = coding
-        if not np.alltrue(self.allele_coding == coding):
-            print(f'ERROR: inconsistent allele coding in {filename}')
-            sys.exit(2)
-
-
     def readInPed(self, filename, startsnp=None, stopsnp=None, haps=False, update_coding=False):
         """Read in genotypes, and optionally haplotypes, from a PLINK plain text formated file, usually .ped
         If update_coding is True, the allele coding is interpreted from the .ped file and any coding
@@ -1043,23 +1007,6 @@ class Pedigree(object):
         MultiThreadIO.writeLinesPlinkPlainTxt(outputFile, data_list)
 
 
-    def writeBim(self, outputFile):
-        """Write allele coding to PLINK plain text .bim format.
-        Only base-pair, allele 1 and allele 2 are written, remaining fields are set to 0
-        Fields
-          Chromosome code (either an integer, or 'X'/'Y'/'XY'/'MT'; '0' indicates unknown) or name
-          Variant identifier
-          Position in morgans or centimorgans (safe to use dummy value of '0')
-          Base-pair coordinate (1-based; limited to 231-2)
-          Allele 1 (corresponding to clear bits in .bed; usually minor)
-          Allele 2 (corresponding to set bits in .bed; usually major)"""
-        with open(outputFile, 'w+') as f:
-            for i in range(self.nLoci):
-                allele0 = self.allele_coding[0, i].astype(str)
-                allele1 = self.allele_coding[1, i].astype(str)
-                f.write(f'0 0 0 {i+1} {allele0} {allele1}\n')
-
-
     def writeLine(self, f, idx, data, func) :
         f.write(idx + ' ' + ' '.join(map(func, data)) + '\n')
 
@@ -1076,7 +1023,6 @@ def addIfNotMissing(array1, counts, array2):
         if array2[i] != 9:
             array1[i] += array2[i]
             counts[i] += 2
-
 
 
 @jit(nopython=True)
