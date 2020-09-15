@@ -615,7 +615,7 @@ class Pedigree(object):
 
 
     
-    def check_line(self, id_data, fileName, idxExpected=None, ncol=None, getInd=True, even_cols=True):
+    def check_line(self, id_data, fileName, idxExpected=None, ncol=None, getInd=True, even_cols=False):
         idx, data = id_data
 
         if idxExpected is not None and idx != idxExpected:
@@ -781,7 +781,7 @@ class Pedigree(object):
         ncol = None
         if self.nLoci != 0:
             # Temporarilly double nLoci while reading in PLINK plain text formats (two fields per locus)
-            # otherwise reading of multiple PLINK files results in an 'Incorrect number of values' 
+            # otherwise reading of multiple PLINK files results in an 'Incorrect number of values'
             # error in check_line()
             self.nLoci = self.nLoci * 2
 
