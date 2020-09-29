@@ -464,13 +464,19 @@ def getFamString(ind):
 #                     f.write('\n')
 
 
-def print_boilerplate(name, version):
+def print_boilerplate(name, version = None, commit = None, date = None):
     """Print software name, version and contact"""
     width = 42  # width of 'website' line
     print('-' * width)
     print(f'{name:^{width}}')  # centre aligned
     print('-' * width)
-    print(f'Version: {version}')
+    if version is not None:
+        print(f'Version: {version}')
+    if commit is not None:
+        print(f'Commit: {version}')
+    if date is not None:
+        print(f'Date: {version}')
+    
     print('Email:   alphagenes@roslin.ed.ac.uk')
     print('Website: http://alphagenes.roslin.ed.ac.uk')
     print('-' * width)
