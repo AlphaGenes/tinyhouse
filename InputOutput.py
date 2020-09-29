@@ -473,9 +473,9 @@ def print_boilerplate(name, version = None, commit = None, date = None):
     if version is not None:
         print(f'Version: {version}')
     if commit is not None:
-        print(f'Commit: {version}')
+        print(f'Commit:  {commit}')
     if date is not None:
-        print(f'Date: {version}')
+        print(f'Date:    {date}')
     
     print('Email:   alphagenes@roslin.ed.ac.uk')
     print('Website: http://alphagenes.roslin.ed.ac.uk')
