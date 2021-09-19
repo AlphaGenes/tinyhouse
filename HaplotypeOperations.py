@@ -1,5 +1,6 @@
 import numba
-from numba import jit, int8, int32, boolean, jitclass, float32, int64
+from numba import jit, float32, int8, int64, optional, boolean
+from numba.experimental import jitclass
 import numpy as np
 
 def setup_individual(ind):

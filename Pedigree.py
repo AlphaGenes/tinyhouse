@@ -50,7 +50,7 @@ class jit_Family(object):
         self.idn = idn
         self.sire = sire
         self.dam = dam
-        self.offspring = offspring
+        self.offspring = offspring.astype(np.int64)
 
 class Individual(object):
     
