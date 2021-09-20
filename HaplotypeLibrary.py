@@ -2,6 +2,10 @@ import pickle
 import random
 import numpy as np
 from numba import njit, jit
+try:
+    from numba.experimental import jitclass
+except ModuleNotFoundError:
+    from numba import jitclass
 
 def profile(x):
     return x
