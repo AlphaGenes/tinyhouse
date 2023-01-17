@@ -2,10 +2,7 @@ import numpy as np
 import numba
 import sys
 from numba import jit, int8, int64, boolean, deferred_type, optional, float32, double
-try:
-    from numba.experimental import jitclass
-except ModuleNotFoundError:
-    from numba import jitclass
+from numba.experimental import jitclass
 
 from collections import OrderedDict
 from . import InputOutput
