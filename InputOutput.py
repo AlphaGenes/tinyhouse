@@ -160,7 +160,7 @@ def rawParseArgs(program, parser = None, no_args = False) :
             sys.exit(1)
 
         
-        if len(args) == 1:
+        if (len(args) == 1) and (args[0] not in ["-h", "--help"]):
             with open(args[0]) as f:
                 args = []
                 for line in f:
