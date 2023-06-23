@@ -162,9 +162,8 @@ def rawParseArgs(program, parser = None, no_args = False) :
         
         if len(args) == 1:
             if args[0] in ["-h", "-help", "--help"]:
-                if args[0] == "-help":
-                    parser.print_help(sys.stderr)
-                    sys.exit(1)
+                parser.print_help(sys.stderr)
+                sys.exit(1)
             else:
                 with open(args[0]) as f:
                     args = []
