@@ -161,11 +161,15 @@ def rawParseArgs(program, parser = None, no_args = False) :
 
         
         if len(args) == 1:
-            with open(args[0]) as f:
-                args = []
-                for line in f:
-                    if line[0] != "-": line = "-" + line
-                    args.extend(re.split(r"[,|\s|\n]+",line))
+            if args[0] in ["-h", "-help", "--help"]:
+                parser.print_help(sys.stderr)
+                sys.exit(1)
+            else:
+                with open(args[0]) as f:
+                    args = []
+                    for line in f:
+                        if line[0] != "-": line = "-" + line
+                        args.extend(re.split(r"[,|\s|\n]+",line))
         for arg in args:
             if len(arg) == 0:
                 args.remove(arg)
