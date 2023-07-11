@@ -932,13 +932,9 @@ class Pedigree(object):
 
     def writePhase(self, outputFile):
         data_list = []
-        for ind in self:
-            if ind.haplotypes.ndim == 2:  # diploid
-                data_list.append((ind.idx, ind.haplotypes[0]))
-                data_list.append((ind.idx, ind.haplotypes[1]))
-            elif ind.haplotypes.ndim == 1:  # haploid
-                data_list.append((ind.idx, ind.haplotypes))
-                data_list.append((ind.idx, ind.haplotypes))
+        for ind in self :
+            data_list.append( (ind.idx, ind.haplotypes[0]) )
+            data_list.append( (ind.idx, ind.haplotypes[1]) )
 
         MultiThreadIO.writeLines(outputFile, data_list, str)
 
