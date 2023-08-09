@@ -552,7 +552,7 @@ class Pedigree(object):
                     self.individuals[parts[2]] = self.constructor(parts[2], self.maxIdn)
                     self.maxIdn += 1
                     self.individuals[parts[2]].fileIndex['pedigree'] = index; index += 1
-                    self.individuals[parts[1]].dummy=True
+                    self.individuals[parts[2]].dummy=True
 
                 dam = self.individuals[parts[2]]
                 ind.dam = dam
