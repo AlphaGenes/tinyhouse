@@ -162,7 +162,7 @@ class Individual(object):
                 else:
                     self.genotypedFounderStatus = 1
             else:
-                parentStatus = max(self.sire.getGenotypedFounderStatus(), self.sire.getGenotypedFounderStatus())
+                parentStatus = max(self.sire.getGenotypedFounderStatus(), self.dam.getGenotypedFounderStatus())
                 if parentStatus > 0:
                     self.genotypedFounderStatus = 2
                 else:
