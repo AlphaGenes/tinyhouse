@@ -162,7 +162,7 @@ class Individual(object):
                 else:
                     self.genotypedFounderStatus = 1
             else:
-                parentStatus = max(self.sire.getGenotypedFounderStatus(), self.sire.getGenotypedFounderStatus())
+                parentStatus = max(self.sire.getGenotypedFounderStatus(), self.dam.getGenotypedFounderStatus())
                 if parentStatus > 0:
                     self.genotypedFounderStatus = 2
                 else:
@@ -552,7 +552,7 @@ class Pedigree(object):
                     self.individuals[parts[2]] = self.constructor(parts[2], self.maxIdn)
                     self.maxIdn += 1
                     self.individuals[parts[2]].fileIndex['pedigree'] = index; index += 1
-                    self.individuals[parts[1]].dummy=True
+                    self.individuals[parts[2]].dummy=True
 
                 dam = self.individuals[parts[2]]
                 ind.dam = dam

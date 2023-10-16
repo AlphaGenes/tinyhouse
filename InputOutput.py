@@ -30,7 +30,7 @@ def getParser(program) :
     # output_options_parser = parser.add_argument_group("Output options")
 
     # output_options_parser.add_argument('-writekey', default="id", required=False, type=str, help='Determines the order in which individuals are ordered in the output file based on their order in the corresponding input file. Animals not in the input file are placed at the end of the file and sorted in alphanumeric order. These animals can be surpressed with the "-onlykeyed" option. Options: id, pedigree, genotypes, sequence, segregation. Defualt: id.')
-    # output_options_parser.add_argument('-onlykeyed', action='store_true', required=False, help='Flag to surpress the animals who are not present in the file used with -outputkey. Also surpresses "dummy" animals.')
+    # output_options_parser.add_argument('-onlykeyed', action='store_true', required=False, help='Flag to surpress the animals who are not present in the file used with -writekey. Also surpresses "dummy" animals.')
     
     if program == "Default":
         pass
@@ -97,7 +97,7 @@ def get_output_options():
     parse_dictionary = dict()
 
     parse_dictionary["writekey"] = lambda parser: parser.add_argument('-writekey', default="id", required=False, type=str, help='Determines the order in which individuals are ordered in the output file based on their order in the corresponding input file. Animals not in the input file are placed at the end of the file and sorted in alphanumeric order. These animals can be surpressed with the "-onlykeyed" option. Options: id, pedigree, genotypes, sequence, segregation. Defualt: id.')
-    parse_dictionary["onlykeyed"] = lambda parser: parser.add_argument('-onlykeyed', action='store_true', required=False, help='Flag to surpress the animals who are not present in the file used with -outputkey. Also surpresses "dummy" animals.')
+    parse_dictionary["onlykeyed"] = lambda parser: parser.add_argument('-onlykeyed', action='store_true', required=False, help='Flag to surpress the animals who are not present in the file used with -writekey. Also surpresses "dummy" animals.')
     parse_dictionary["iothreads"] = lambda parser: parser.add_argument('-iothreads', default=1, required=False, type=int, help='Number of threads to use for io. Default: 1.')
 
     return parse_dictionary
