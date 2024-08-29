@@ -527,7 +527,7 @@ class Pedigree(object):
             idx = parts[0]
 
             # check if the individual is a metafounder
-            if idx is not None and idx[:3] != "MF_":
+            if idx is not None and idx[:3] == "MF_":
                 print(f"ERROR: Invalid metafounder input format.\nExiting...")
                 sys.exit(2)
             
@@ -948,13 +948,13 @@ class Pedigree(object):
             default_aap = True
 
         for value in data_list:
-            idx, data = value
+            mfx, data = value
             nLoci = self.nLoci
             if len(data) != nLoci:
                 print("ERROR: Incorrect alternative allele probability input format. \nExiting...")
                 sys.exit(2)
-            if idx[:3] == "MF_":
-                if idx == MainMetaFounder:
+            if mfx[:3] == "MF_":
+                if mfx == MainMetaFounder:
                     default_aap = False
                 current_aap = np.zeros(nLoci, dtype=np.float32)
                 try:
@@ -962,7 +962,7 @@ class Pedigree(object):
                 except ValueError:
                     print("ERROR: Incorrect alternative allele probability input format. \nExiting...")
                     sys.exit(2)
-                self.AAP[idx] = current_aap
+                self.AAP[mfx] = current_aap
             else:
                 print("ERROR: Incorrect alternative allele probability input format. \nExiting...")
                 sys.exit(2)
