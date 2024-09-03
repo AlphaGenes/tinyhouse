@@ -572,7 +572,7 @@ class Pedigree(object):
                     elif damID is None:
                         damID = "MotherOf" + idx
             
-            if sireID:
+            if sireID and not MFP:
                 if sireID not in self.individuals:
                     self.individuals[sireID] = self.constructor(sireID, self.maxIdn, MetaFounder=self.MainMetaFounder)
                     sire = self.individuals[sireID]
@@ -584,7 +584,7 @@ class Pedigree(object):
                 sire.offspring.append(ind)
                 sire.sex = 0
 
-            if damID:
+            if damID and not MFM:
                 if damID not in self.individuals:
                     self.individuals[damID] = self.constructor(damID, self.maxIdn, MetaFounder=self.MainMetaFounder)
                     dam = self.individuals[damID]
