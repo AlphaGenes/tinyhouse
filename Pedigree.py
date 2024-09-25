@@ -47,7 +47,7 @@ class jit_Family(object):
 
 class Individual(object):
     
-    def __init__(self, idx, idn) :
+    def __init__(self, idx, idn, MetaFounder=None) :
 
         self.genotypes = None
         self.haplotypes = None
@@ -94,6 +94,8 @@ class Individual(object):
         self.is_high_density = False
 
         self.genotypedFounderStatus = None #?
+
+        self.MetaFounder = MetaFounder
     
     def __eq__(self, other):
         return self is other
@@ -244,6 +246,10 @@ class Pedigree(object):
 
         self.referencePanel = [] #This should be an array of haplotypes. Or a dictionary?
 
+        self.MainMetaFounder = None
+        self.AAP = {}
+
+        # remove?
         self.maf=None #Maf is the frequency of 2s.
 
         # Threshold that determines if an individual is high-density genotyped
@@ -462,7 +468,7 @@ class Pedigree(object):
 
     def getIndividual(self, idx) :
         if idx not in self.individuals:
-            self.individuals[idx] = self.constructor(idx, self.maxIdn)
+            self.individuals[idx] = self.constructor(idx, self.maxIdn, MetaFounder=self.MainMetaFounder)
             self.maxIdn += 1
             self.generations = None
         return self.individuals[idx]
@@ -517,44 +523,75 @@ class Pedigree(object):
 
     def readInPedigreeFromList(self, pedList):
         index = 0
-        for parts in pedList :
+        for parts in pedList:
             idx = parts[0]
-            self.individuals[idx] = self.constructor(idx, self.maxIdn)
+
+            # check if the individual is a metafounder
+            if idx is not None and idx[:3] == "MF_":
+                print(f"ERROR: Invalid metafounder input format.\nExiting...")
+                sys.exit(2)
+            
+            self.individuals[idx] = self.constructor(idx, self.maxIdn, MetaFounder=self.MainMetaFounder)
             self.maxIdn += 1
             self.individuals[idx].fileIndex['pedigree'] = index; index += 1
 
-        for parts in pedList :
+        for parts in pedList:
             idx = parts[0]
-            if parts[1] == "0": parts[1] = None
-            if parts[2] == "0": parts[2] = None
-            
-            if parts[1] is not None and parts[2] is None:
-                parts[2] = "MotherOf"+parts[0]
-            if parts[2] is not None and parts[1] is None:
-                parts[1] = "FatherOf"+parts[0] 
+            sireID = parts[1]
+            damID = parts[2]
+            ind = self.individuals[idx]
 
-            ind = self.individuals[parts[0]]
+            if sireID == "0":
+                sireID = None
+            if damID == "0":
+                damID = None
+
+            # check if parents are metafounders
+            MFP = (sireID[:3] == "MF_")
+            MFM = (damID[:3] == "MF_")
+
+            if sireID or damID:
+                # check if one of the parents is a metafounder
+                if (MFP or MFM):
+                    # check if both of the parents are metafounders
+                    if (MFP and MFM):
+                        # check if the metafounders match
+                        if sireID == damID:
+                            ind.MetaFounder = sireID
+                        else:
+                            # expect more infomative error message
+                            print(f"ERROR: Invalid metafounder input format.\nExiting...")
+                            sys.exit(2)
+                    else:
+                        # expect more infomative error message
+                        print(f"ERROR: Invalid metafounder input format.\nExiting...")
+                        sys.exit(2)
+                else:
+                    if sireID is None:
+                        sireID = "FatherOf" + idx
+                    elif damID is None:
+                        damID = "MotherOf" + idx
             
-            if parts[1] is not None:
-                if parts[1] not in self.individuals:
-                    self.individuals[parts[1]] = self.constructor(parts[1], self.maxIdn)
+            if sireID and not MFP:
+                if sireID not in self.individuals:
+                    self.individuals[sireID] = self.constructor(sireID, self.maxIdn, MetaFounder=self.MainMetaFounder)
+                    sire = self.individuals[sireID]
                     self.maxIdn += 1
-                    self.individuals[parts[1]].fileIndex['pedigree'] = index; index += 1
-                    self.individuals[parts[1]].dummy=True
-
-                sire = self.individuals[parts[1]]
+                    sire.dummy = True
+                else:
+                    sire = self.individuals[sireID]
                 ind.sire = sire
                 sire.offspring.append(ind)
                 sire.sex = 0
 
-            if parts[2] is not None:
-                if parts[2] not in self.individuals:
-                    self.individuals[parts[2]] = self.constructor(parts[2], self.maxIdn)
+            if damID and not MFM:
+                if damID not in self.individuals:
+                    self.individuals[damID] = self.constructor(damID, self.maxIdn, MetaFounder=self.MainMetaFounder)
+                    dam = self.individuals[damID]
                     self.maxIdn += 1
-                    self.individuals[parts[2]].fileIndex['pedigree'] = index; index += 1
-                    self.individuals[parts[2]].dummy=True
-
-                dam = self.individuals[parts[2]]
+                    dam.dummy = True
+                else:
+                    dam = self.individuals[damID]
                 ind.dam = dam
                 dam.offspring.append(ind)
                 dam.sex = 1
@@ -895,6 +932,43 @@ class Pedigree(object):
 
             ind.reads[e][:] = reads
             e = 1-e
+
+    def readInAAP(self, fileName):
+        """function for reading alternative allele probability input
+
+        :param fileName: The file path
+        :type fileName: str
+        """        
+        data_list = MultiThreadIO.readLines(fileName, startsnp=None, stopsnp=None, dtype = np.int64)
+
+        # flag of whether adding a default alternative allele probability
+        default_aap = False
+        MainMetaFounder = self.MainMetaFounder
+        if MainMetaFounder:
+            default_aap = True
+
+        for value in data_list:
+            mfx, data = value
+            nLoci = self.nLoci
+            if len(data) != nLoci:
+                print("ERROR: Incorrect alternative allele probability input format. \nExiting...")
+                sys.exit(2)
+            if mfx[:3] == "MF_":
+                if mfx == MainMetaFounder:
+                    default_aap = False
+                current_aap = np.zeros(nLoci, dtype=np.float32)
+                try:
+                    current_aap[:] = data
+                except ValueError:
+                    print("ERROR: Incorrect alternative allele probability input format. \nExiting...")
+                    sys.exit(2)
+                self.AAP[mfx] = current_aap
+            else:
+                print("ERROR: Incorrect alternative allele probability input format. \nExiting...")
+                sys.exit(2)
+
+        if default_aap:
+            self.AAP[MainMetaFounder] = np.full(nLoci, 0.5, dtype=np.float32)
 
 
     def callGenotypes(self, threshold):
