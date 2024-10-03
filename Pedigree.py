@@ -543,12 +543,16 @@ class Pedigree(object):
 
             if sireID == "0":
                 sireID = None
+                MFP = False
             if damID == "0":
                 damID = None
+                MFM = False
 
             # check if parents are metafounders
-            MFP = (sireID[:3] == "MF_")
-            MFM = (damID[:3] == "MF_")
+            if (sireID != None):
+                MFP = (sireID[:3] == "MF_")
+            if (damID != None):
+                MFM = (damID[:3] == "MF_")
 
             if sireID or damID:
                 # check if one of the parents is a metafounder
