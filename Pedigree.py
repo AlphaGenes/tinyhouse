@@ -541,17 +541,16 @@ class Pedigree(object):
             damID = parts[2]
             ind = self.individuals[idx]
 
+            # check if parents are metafounders
             if sireID == "0":
                 sireID = None
                 MFP = False
+            else:
+                MFP = (sireID[:3] == "MF_")
             if damID == "0":
                 damID = None
                 MFM = False
-
-            # check if parents are metafounders
-            if (sireID != None):
-                MFP = (sireID[:3] == "MF_")
-            if (damID != None):
+            else:
                 MFM = (damID[:3] == "MF_")
 
             if sireID or damID:
