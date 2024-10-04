@@ -202,6 +202,9 @@ def readInPedigreeFromInputs(pedigree, args, genotypes=True, haps=False, reads=F
     stopsnp = getattr(args, "stopsnp", None)
 
     pedigree.MainMetaFounder = getattr(args, "main_metafounder", None)
+    if pedigree.MainMetaFounder[:3] != "MF_":
+        print(f"ERROR: The main_metafounder must start with MF_. \nExiting...")
+        sys.exit(2)
     pedigree.args = args
     pedigreeReadIn = False
 
