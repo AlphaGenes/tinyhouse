@@ -236,7 +236,8 @@ def readInPedigreeFromInputs(pedigree, args, genotypes=True, haps=False, reads=F
     
     aapfile = getattr(args, "alt_allele_prob_file", None)
     if aapfile is not None:
-        pedigree.readInAAP(aapfile)
+        for aap in args.alt_allele_prob_file:
+            pedigree.readInAAP(aap)
     
     bfile = getattr(args, "bfile", None)
     if bfile is not None: 
