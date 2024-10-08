@@ -202,6 +202,9 @@ def readInPedigreeFromInputs(pedigree, args, genotypes=True, haps=False, reads=F
     stopsnp = getattr(args, "stopsnp", None)
 
     pedigree.MainMetaFounder = getattr(args, "main_metafounder", None)
+    if pedigree.MainMetaFounder[:3] != "MF_":
+        print(f"ERROR: The main_metafounder must start with MF_. \nExiting...")
+        sys.exit(2)
     pedigree.args = args
     pedigreeReadIn = False
 
@@ -236,7 +239,8 @@ def readInPedigreeFromInputs(pedigree, args, genotypes=True, haps=False, reads=F
     
     aapfile = getattr(args, "alt_allele_prob_file", None)
     if aapfile is not None:
-        pedigree.readInAAP(aapfile)
+        for aap in args.alt_allele_prob_file:
+            pedigree.readInAAP(aap)
     
     bfile = getattr(args, "bfile", None)
     if bfile is not None: 
