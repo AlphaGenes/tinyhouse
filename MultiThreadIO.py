@@ -56,7 +56,7 @@ def split_by(array, step):
 
 
 
-def process_input_line(line, startsnp, stopsnp, dtype, nonInteger = False):
+def process_input_line(line, startsnp, stopsnp, dtype):
     parts = line.split(); 
     idx = parts[0]
     parts = parts[1:]
@@ -64,7 +64,7 @@ def process_input_line(line, startsnp, stopsnp, dtype, nonInteger = False):
     if startsnp is not None :
         parts = parts[startsnp : stopsnp + 1] #Offset 1 for id and 2 for id + include stopsnp
 
-    if nonInteger :
+    if dtype in [np.float16, np.float32, np.float64] :
         data = np.array([val for val in parts], dtype=dtype)
     else :
         data = np.array([int(val) for val in parts], dtype = dtype)
@@ -94,7 +94,7 @@ def process_input_line_plink(line, startsnp, stopsnp, dtype):
     return (idx, data)
 
 
-def readLines(fileName, startsnp, stopsnp, dtype, processor=process_input_line, nonInteger = False):
+def readLines(fileName, startsnp, stopsnp, dtype, processor=process_input_line):
     # print(f"Reading in file: {fileName}")
 
     try:
@@ -120,7 +120,7 @@ def readLines(fileName, startsnp, stopsnp, dtype, processor=process_input_line, 
 
         if iothreads <= 1:
             for line in f:
-                output.append(processor(line, startsnp = startsnp, stopsnp = stopsnp, dtype = dtype, nonInteger = nonInteger))
+                output.append(processor(line, startsnp = startsnp, stopsnp = stopsnp, dtype = dtype))
 
     return output
 
