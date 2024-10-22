@@ -942,7 +942,7 @@ class Pedigree(object):
         :param fileName: The file path
         :type fileName: str
         """        
-        data_list = MultiThreadIO.readLines(fileName, startsnp=None, stopsnp=None, dtype = np.int64)
+        data_list = MultiThreadIO.readLines(fileName, startsnp=None, stopsnp=None, dtype = np.float32)
 
         # flag of whether adding a default alternative allele probability
         default_aap = False
