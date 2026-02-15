@@ -228,7 +228,7 @@ def readInPedigreeFromInputs(pedigree, args, genotypes=True, haps=False, reads=F
     phenotype = getattr(args, "phenotype", None)
     if phenotype is not None:
         if phenoPenetrance is None:
-            print("ERROR: To use phenotype information, please provide a phenotype penetrance via '-pheno_penetrance_file'\nExiting...")
+            print("ERROR: To use phenotype information, please provide a phenotype penetrance via '-pheno_penetrance_prob_file'\nExiting...")
             sys.exit(2)
         if pedigree.nLoci > 1:
             # For now, this will be removed once mapping of phenotype to genotype is done.

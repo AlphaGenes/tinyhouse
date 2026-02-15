@@ -995,36 +995,116 @@ class Pedigree(object):
         :param fileName: The file path
         :type fileName: str
         """        
-        data_list = MultiThreadIO.readLines(fileName, startsnp=None, stopsnp=None, dtype = np.float32)
+        with open(fileName) as f:
+            lines = [line.strip() for line in f if line.strip()]
+
+        if not lines:
+            print("ERROR: The `alt_allele_prob_file` is empty. Expected a header row like 'MF_1 MF_2 ...'.\nExiting...")
+            sys.exit(2)
+
+        header = lines[0].split()
+        if not header:
+            print("ERROR: First row of the `alt_allele_prob_file` is empty. Expected metafounder IDs (e.g., 'MF_1 MF_2 ...') or a single column of alternative allele probabilities for each locus.\nExiting...")
+            sys.exit(2)
+
+        # If the first row does not start with MF_, treat the file as a single column of loci.
+        if not header[0].startswith("MF_"):
+            if len(header) != 1:
+                print(f"ERROR: First row of the `alt_allele_prob_file` starts with '{header[0]}' but is not a valid metafounder ID.\n"
+                      f"Expected a header like 'MF_1 MF_2 ...' or a single column of loci values.\nExiting...")
+                sys.exit(2)
+            
+            nLoci = self.nLoci
+            if len(lines) != nLoci:
+                print(f"ERROR: Incorrect number of locus rows in the `alt_allele_prob_file`. Expected {nLoci} rows but found {len(lines)}.\nExiting...")
+                sys.exit(2)
+            
+            # Check for NA/NaN values per locus
+            missing_loci = []
+            data_values = []
+            for i, line in enumerate(lines):
+                value = line.split()[0]
+                if value.lower() in ("na", "nan"):
+                    missing_loci.append(i + 1)
+                else:
+                    try:
+                        data_values.append(float(value))
+                    except ValueError:
+                        print(f"ERROR: Non-numeric value found at locus {i + 1} in the `alt_allele_prob_file`.\nExiting...")
+                        sys.exit(2)
+            
+            # Report missing values if found
+            if missing_loci:
+                print(f"ERROR: Missing values (NA/NaN) found in the `alt_allele_prob_file` at loci: {', '.join(map(str, missing_loci))}.\nIf the alternative allele probability is unknown, please use default of 0.5\nExiting...")
+                sys.exit(2)
+            
+            data = np.array(data_values, dtype=np.float32)
+            self.AAP[self.MainMetaFounder] = data
+            return
+
+        metafounders = header
+
+        n_meta = len(metafounders)
+
+        invalid_headers = [mfx for mfx in metafounders if not mfx.startswith("MF_")]
+        if invalid_headers:
+            print(
+                "ERROR: All metafounders must have the prefix 'MF_'. "
+                f"{', '.join(invalid_headers)} do not, but are present in the `-alt_allele_prob_file`. Please remove or rename {', '.join(invalid_headers)}.\nExiting..."
+            )
+            sys.exit(2)
+
+        nLoci = self.nLoci
+        nDataRows = len(lines) - 1
+        if nDataRows != nLoci:
+            if nDataRows < nLoci:
+                print(f"ERROR: Not all loci have an alternative allele frequency in the `-alt_allele_prob_file` input. Expected {nLoci} rows but found {nDataRows}.\nExiting...")
+            else:
+                print(f"ERROR: The `-alt_allele_prob_file` input has more alternative allele probabilities than loci. Expected {nLoci} rows but found {nDataRows}.\nExiting...")
+            sys.exit(2)
+        aap_matrix = np.zeros((n_meta, nLoci), dtype=np.float32)
+        missing_values_per_mf = {mfx: [] for mfx in metafounders}
+        
+        for i, line in enumerate(lines[1:]):
+            parts = line.split()
+            if len(parts) != n_meta:
+                print(f"ERROR: in the `alt_allele_prob_file`, locus row {i + 1} has {len(parts)} values but header has {n_meta} metafounders. If the alternative allele probabaility is unknown, please use default of 0.5\nExiting...")
+                sys.exit(2)
+            
+            # Check for NA/NaN values per metafounder
+            has_missing = False
+            for col, value in enumerate(parts):
+                if value.lower() in ("na", "nan"):
+                    missing_values_per_mf[metafounders[col]].append(i + 1)
+                    has_missing = True
+            
+            # Skip conversion if row has missing values
+            if has_missing:
+                continue
+            
+            try:
+                aap_matrix[:, i] = np.array(parts, dtype=np.float32)
+            except ValueError:
+                print(f"ERROR: Non-numeric value found in locus row {i + 1} of the `alt_allele_prob_file`. If the alternative allele probabaility is unknown, please use default of 0.5\nExiting....")
+                sys.exit(2)
+        
+        # Report metafounders with missing values
+        mfs_with_missing = [mfx for mfx, loci in missing_values_per_mf.items() if loci]
+        if mfs_with_missing:
+            missing_summary = '; '.join([f"{mfx} (loci: {', '.join(map(str, missing_values_per_mf[mfx]))})" for mfx in mfs_with_missing])
+            print(f"ERROR: Missing values (NA/NaN) found in the `alt_allele_prob_file`:\n{missing_summary}\nIf the alternative allele probability is unknown, please use default of 0.5\nExiting...")
+            sys.exit(2)
 
         # flag of whether adding a default alternative allele probability
-        default_aap = False
-        MainMetaFounder = self.MainMetaFounder
-        if MainMetaFounder:
-            default_aap = True
+        default_aap = self.MainMetaFounder is not None
 
-        for value in data_list:
-            mfx, data = value
-            nLoci = self.nLoci
-            if len(data) != nLoci:
-                print(f"ERROR: For {mfx}, not all loci have an alternative allele frequency in the `-alt_allele_prob_file` input. \nExiting...")
-                sys.exit(2)
-            if mfx[:3] == "MF_":
-                if mfx == MainMetaFounder:
-                    default_aap = False
-                current_aap = np.zeros(nLoci, dtype=np.float32)
-                try:
-                    current_aap[:] = data
-                except ValueError:
-                    print(f"ERROR: For {mfx}, the alternative allele frequency data gave a ValueError. Please check the `-alt_allele_prob_file` input. \nExiting...")
-                    sys.exit(2)
-                self.AAP[mfx] = current_aap
-            else:
-                print(f"ERROR: All metafounders must have the prefix 'MF_'. {mfx} does not but is present in the `-alt_allele_prob_file`. Please remove or rename {mfx}. \nExiting...")
-                sys.exit(2)
+        for col, mfx in enumerate(metafounders):
+            if mfx == self.MainMetaFounder:
+                default_aap = False
+            self.AAP[mfx] = aap_matrix[col]
 
         if default_aap:
-            self.AAP[MainMetaFounder] = np.full(nLoci, 0.5, dtype=np.float32)
+            self.AAP[self.MainMetaFounder] = np.full(nLoci, 0.5, dtype=np.float32)
 
 
     def callGenotypes(self, threshold):
