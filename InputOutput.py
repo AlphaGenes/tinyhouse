@@ -427,7 +427,7 @@ def readInPedigreeFromInputs(
     if phasefile is not None:
         if args.program == "AlphaPeel":
             print(
-                "Use of an external phase file is not currently supported. Phase information will be translated to genotype probabilities. If absolutely necessary use a penetrance file instead."
+                "Haplotype information will be translated to unphased genotypes. To input phase information, see -phased_geno_prob_file in the docs."
             )
         for phase in args.phasefile:
             pedigree.readInPhase(phase, startsnp, stopsnp)
