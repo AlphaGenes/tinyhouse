@@ -374,8 +374,7 @@ def readInPedigreeFromInputs(
 
     pedigree.MainMetaFounder = getattr(args, "main_metafounder", None)
     if pedigree.MainMetaFounder[:3] != "MF_":
-        print("ERROR: The main_metafounder must start with MF_. \nExiting...")
-        sys.exit(2)
+        raise ValueError("The main_metafounder must start with MF_.")
     pedigree.args = args
     pedigreeReadIn = False
 
@@ -399,16 +398,14 @@ def readInPedigreeFromInputs(
     phenotype = getattr(args, "phenotype", None)
     if phenotype is not None:
         if phenoPenetrance is None:
-            print(
-                "ERROR: To use phenotype information, please provide a phenotype penetrance via '-pheno_penetrance_file'\nExiting..."
+            raise ValueError(
+                "To use phenotype information, please provide a phenotype penetrance via '-pheno_penetrance_file'."
             )
-            sys.exit(2)
         if pedigree.nLoci > 1:
             # For now, this will be removed once mapping of phenotype to genotype is done.
-            print(
-                "ERROR: Currently phenotype information can only be used with a single locus genotype input. Please either remove the pheno_file or use a single locus genotype input.\nExiting..."
+            raise ValueError(
+                "Currently phenotype information can only be used with a single locus genotype input. Please either remove the pheno_file or use a single locus genotype input."
             )
-            sys.exit(2)
 
         for pheno in args.phenotype:
             pedigree.readInPhenotype(pheno)

@@ -1,5 +1,4 @@
 import numpy as np
-import sys
 import re
 from numba import jit, int64
 from numba.experimental import jitclass
@@ -574,10 +573,9 @@ class Pedigree(object):
 
             # check if the individual is a metafounder
             if idx is not None and idx[:3] == "MF_":
-                print(
-                    f"ERROR: Individual {idx} uses the prefix 'MF_' which is reserved for metafounders and cannot be used for an individual's id. \nExiting..."
+                raise ValueError(
+                    f"Individual {idx} uses the prefix 'MF_' which is reserved for metafounders and cannot be used for an individual's id."
                 )
-                sys.exit(2)
 
             # All individuals (and dummy individuals) in the pedigree are assigned the default metafounder.
             # This is then updated using the pedigree input for the individuals in the base population (founders).
@@ -621,10 +619,9 @@ class Pedigree(object):
                         else:
                             ind.MetaFounder = [sireID, damID]
                     else:
-                        print(
-                            f"ERROR: Both parents must be metafounders if one is a metafounder. For individual {idx} the parents were {sireID} and {damID}.\nConsider using a dummy individual for the metafounder.\nExiting..."
+                        raise ValueError(
+                            f"Both parents must be metafounders if one is a metafounder. For individual {idx} the parents were {sireID} and {damID}.\nConsider using a dummy individual for the metafounder."
                         )
-                        sys.exit(2)
                 else:
                     if sireID is None:
                         sireID = "FatherOf" + idx
@@ -665,10 +662,9 @@ class Pedigree(object):
                 inbred, outbred = {"dh", "inbred"}, {"outbred"}
                 expected_entries = male | female | inbred | outbred
                 if parts[3].lower() not in expected_entries:
-                    print(
-                        f"ERROR: unexpected entry in pedigree file, fourth field: '{parts[3]}'\nExiting..."
+                    raise ValueError(
+                        f"Unexpected entry in pedigree file, fourth field: '{parts[3]}'"
                     )
-                    sys.exit(2)
                 # Sex
                 if parts[3].lower() in male:
                     ind.sex = 0
@@ -694,10 +690,9 @@ class Pedigree(object):
             if self.nLoci == 0:
                 self.nLoci = nLoci
             if self.nLoci != nLoci:
-                print(
-                    f"ERROR: incorrect number of loci when reading in plink file. Expected {self.nLoci} got {nLoci}.\nExiting..."
+                raise ValueError(
+                    f"Incorrect number of loci when reading in plink file. Expected {self.nLoci} got {nLoci}."
                 )
-                sys.exit(2)
             if idx not in self.individuals:
                 self.individuals[idx] = self.constructor(idx, self.maxIdn)
                 self.maxIdn += 1
@@ -724,31 +719,27 @@ class Pedigree(object):
         idx, data = id_data
 
         if idxExpected is not None and idx != idxExpected:
-            print(
-                f"ERROR: Expected individual {idxExpected} but got individual {idx}.\nExiting..."
+            raise ValueError(
+                f"Expected individual {idxExpected} but got individual {idx}."
             )
-            sys.exit(2)
         if ncol is None:
             ncol = len(data)
         if ncol != len(data):
-            print(
-                f"ERROR: incorrect number of columns in {fileName}. Expected {ncol} values but got {len(data)} for individual {idx}.\nExiting..."
+            raise ValueError(
+                f"Incorrect number of columns in {fileName}. Expected {ncol} values but got {len(data)} for individual {idx}."
             )
-            sys.exit(2)
         if even_cols and ncol % 2 != 0:
-            print(
-                f"ERROR: file {fileName} doesn't contain an even number of allele columns for individual {idx}.\nExiting..."
+            raise ValueError(
+                f"File {fileName} doesn't contain an even number of allele columns for individual {idx}."
             )
-            sys.exit(2)
 
         nLoci = len(data)
         if self.nLoci == 0:
             self.nLoci = nLoci
         if self.nLoci != nLoci:
-            print(
-                f"ERROR: inconsistent number of markers or alleles in {fileName}. Expected {self.nLoci} got {nLoci}."
+            raise ValueError(
+                f"Inconsistent number of markers or alleles in {fileName}. Expected {self.nLoci} got {nLoci}."
             )
-            sys.exit(2)
 
         ind = None
         if getInd:
@@ -795,10 +786,9 @@ class Pedigree(object):
             alleles != self.allele_coding[1]
         )  # poss speedup alleles != self.allele_coding[0] done above
         if np.sum(mask) > 0:
-            print(
-                f"ERROR: more than two alleles found in input file(s) at loci {np.flatnonzero(mask)}\nExiting..."
+            raise ValueError(
+                f"More than two alleles found in input file(s) at loci {np.flatnonzero(mask)}."
             )
-            sys.exit(2)
 
     def allele_coding_complete(self):
         """Check whether the allele coding is complete (contains no missing values)"""
@@ -869,11 +859,10 @@ class Pedigree(object):
         )  # unexpected letters
         if np.sum(unusual) > 0:
             letters = " ".join(np.unique(self.allele_coding[unusual].astype(str)))
-            print(
-                f"ERROR: unexpected values found in {filename}: [{letters}].\n"
-                f"Please check the file is in PLINK .ped format\nExiting..."
+            raise ValueError(
+                f"Unexpected values found in {filename}: [{letters}].\n"
+                "Please check the file is in PLINK .ped format."
             )
-            sys.exit(2)
         elif n_monoallelic > 0:
             print(
                 f"WARNING: allele coding from {filename} has {n_monoallelic} monoallelic loci"
@@ -989,10 +978,9 @@ class Pedigree(object):
             if self.nPheno == 0:
                 self.nPheno = nPheno
             if self.nPheno != nPheno:
-                print(
-                    f"ERROR: inconsistent number of phenotypes when reading in phenotype file. Expected {self.nPheno} got {nPheno}.\nExiting..."
+                raise ValueError(
+                    f"Inconsistent number of phenotypes when reading in phenotype file. Expected {self.nPheno} got {nPheno}."
                 )
-                sys.exit(2)
 
             if idx not in self.individuals:
                 self.individuals[idx] = self.constructor(idx, self.maxIdn)
@@ -1100,33 +1088,29 @@ class Pedigree(object):
             lines = [line.strip() for line in f if line.strip()]
 
         if not lines:
-            print(
-                "ERROR: The `alt_allele_prob_file` is empty. Expected a header row like 'MF_1 MF_2 ...'.\nExiting..."
+            raise ValueError(
+                "The `alt_allele_prob_file` is empty. Expected a header row like 'MF_1 MF_2 ...'."
             )
-            sys.exit(2)
 
         header = lines[0].split()
         if not header:
-            print(
-                "ERROR: First row of the `alt_allele_prob_file` is empty. Expected metafounder IDs (e.g., 'MF_1 MF_2 ...') or a single column of alternative allele probabilities for each locus.\nExiting..."
+            raise ValueError(
+                "First row of the `alt_allele_prob_file` is empty. Expected metafounder IDs (e.g., 'MF_1 MF_2 ...') or a single column of alternative allele probabilities for each locus."
             )
-            sys.exit(2)
 
         # If the first row does not start with MF_, treat the file as a single column of loci.
         if not header[0].startswith("MF_"):
             if len(header) != 1:
-                print(
-                    f"ERROR: First row of the `alt_allele_prob_file` starts with '{header[0]}' but is not a valid metafounder ID.\n"
-                    f"Expected a header like 'MF_1 MF_2 ...' or a single column of loci values.\nExiting..."
+                raise ValueError(
+                    f"First row of the `alt_allele_prob_file` starts with '{header[0]}' but is not a valid metafounder ID.\n"
+                    "Expected a header like 'MF_1 MF_2 ...' or a single column of loci values."
                 )
-                sys.exit(2)
 
             nLoci = self.nLoci
             if len(lines) != nLoci:
-                print(
-                    f"ERROR: Incorrect number of locus rows in the `alt_allele_prob_file`. Expected {nLoci} rows but found {len(lines)}.\nExiting..."
+                raise ValueError(
+                    f"Incorrect number of locus rows in the `alt_allele_prob_file`. Expected {nLoci} rows but found {len(lines)}."
                 )
-                sys.exit(2)
 
             # Check for NA/NaN values per locus
             missing_loci = []
@@ -1139,17 +1123,15 @@ class Pedigree(object):
                     try:
                         data_values.append(float(value))
                     except ValueError:
-                        print(
-                            f"ERROR: Non-numeric value found at locus {i + 1} in the `alt_allele_prob_file`.\nExiting..."
+                        raise ValueError(
+                            f"Non-numeric value found at locus {i + 1} in the `alt_allele_prob_file`."
                         )
-                        sys.exit(2)
 
             # Report missing values if found
             if missing_loci:
-                print(
-                    f"ERROR: Missing values (NA/NaN) found in the `alt_allele_prob_file` at loci: {', '.join(map(str, missing_loci))}.\nIf the alternative allele probability is unknown, please use default of 0.5\nExiting..."
+                raise ValueError(
+                    f"Missing values (NA/NaN) found in the `alt_allele_prob_file` at loci: {', '.join(map(str, missing_loci))}.\nIf the alternative allele probability is unknown, please use default of 0.5."
                 )
-                sys.exit(2)
 
             data = np.array(data_values, dtype=np.float32)
             self.AAP[self.MainMetaFounder] = data
@@ -1161,34 +1143,31 @@ class Pedigree(object):
 
         invalid_headers = [mfx for mfx in metafounders if not mfx.startswith("MF_")]
         if invalid_headers:
-            print(
-                "ERROR: All metafounders must have the prefix 'MF_'. "
-                f"{', '.join(invalid_headers)} do not, but are present in the `-alt_allele_prob_file`. Please remove or rename {', '.join(invalid_headers)}.\nExiting..."
+            raise ValueError(
+                "All metafounders must have the prefix 'MF_'. "
+                f"{', '.join(invalid_headers)} do not, but are present in the `-alt_allele_prob_file`. Please remove or rename {', '.join(invalid_headers)}."
             )
-            sys.exit(2)
 
         nLoci = self.nLoci
         nDataRows = len(lines) - 1
         if nDataRows != nLoci:
             if nDataRows < nLoci:
-                print(
-                    f"ERROR: Not all loci have an alternative allele frequency in the `-alt_allele_prob_file` input. Expected {nLoci} rows but found {nDataRows}.\nExiting..."
+                raise ValueError(
+                    f"Not all loci have an alternative allele frequency in the `-alt_allele_prob_file` input. Expected {nLoci} rows but found {nDataRows}."
                 )
             else:
-                print(
-                    f"ERROR: The `-alt_allele_prob_file` input has more alternative allele probabilities than loci. Expected {nLoci} rows but found {nDataRows}.\nExiting..."
+                raise ValueError(
+                    f"The `-alt_allele_prob_file` input has more alternative allele probabilities than loci. Expected {nLoci} rows but found {nDataRows}."
                 )
-            sys.exit(2)
         aap_matrix = np.zeros((n_meta, nLoci), dtype=np.float32)
         missing_values_per_mf = {mfx: [] for mfx in metafounders}
 
         for i, line in enumerate(lines[1:]):
             parts = line.split()
             if len(parts) != n_meta:
-                print(
-                    f"ERROR: in the `alt_allele_prob_file`, locus row {i + 1} has {len(parts)} values but header has {n_meta} metafounders. If the alternative allele probabaility is unknown, please use default of 0.5\nExiting..."
+                raise ValueError(
+                    f"In the `alt_allele_prob_file`, locus row {i + 1} has {len(parts)} values but header has {n_meta} metafounders. If the alternative allele probability is unknown, please use default of 0.5."
                 )
-                sys.exit(2)
 
             # Check for NA/NaN values per metafounder
             has_missing = False
@@ -1204,10 +1183,9 @@ class Pedigree(object):
             try:
                 aap_matrix[:, i] = np.array(parts, dtype=np.float32)
             except ValueError:
-                print(
-                    f"ERROR: Non-numeric value found in locus row {i + 1} of the `alt_allele_prob_file`. If the alternative allele probabaility is unknown, please use default of 0.5\nExiting...."
+                raise ValueError(
+                    f"Non-numeric value found in locus row {i + 1} of the `alt_allele_prob_file`. If the alternative allele probability is unknown, please use default of 0.5."
                 )
-                sys.exit(2)
 
         # Report metafounders with missing values
         mfs_with_missing = [mfx for mfx, loci in missing_values_per_mf.items() if loci]
@@ -1218,10 +1196,9 @@ class Pedigree(object):
                     for mfx in mfs_with_missing
                 ]
             )
-            print(
-                f"ERROR: Missing values (NA/NaN) found in the `alt_allele_prob_file`:\n{missing_summary}\nIf the alternative allele probability is unknown, please use default of 0.5\nExiting..."
+            raise ValueError(
+                f"Missing values (NA/NaN) found in the `alt_allele_prob_file`:\n{missing_summary}\nIf the alternative allele probability is unknown, please use default of 0.5."
             )
-            sys.exit(2)
 
         # flag of whether adding a default alternative allele probability
         default_aap = self.MainMetaFounder is not None
