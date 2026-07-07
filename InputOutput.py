@@ -296,9 +296,9 @@ def add_arguments_from_dictionary(parser, arg_dict, options=None):
                 print("Option not found:", option, arg_dict)
 
 
-def parseArgs(program, parser=None, no_args=False):
+def parseArgs(program, parser=None, no_args=False, argv=None):
     global args
-    args = rawParseArgs(program, parser, no_args=no_args)
+    args = rawParseArgs(program, parser, no_args=no_args, argv=argv)
     args.program = program
 
     # We want start/stop snp to be in python format (i.e. 0 to n-1).
@@ -314,7 +314,7 @@ def parseArgs(program, parser=None, no_args=False):
     return args
 
 
-def rawParseArgs(program, parser=None, no_args=False):
+def rawParseArgs(program, parser=None, no_args=False, argv=None):
     if parser is None:
         parser = getParser(program)
 
@@ -322,7 +322,7 @@ def rawParseArgs(program, parser=None, no_args=False):
         return parser.parse_args(["-out", "out"])
 
     else:
-        args = sys.argv[1:]
+        args = sys.argv[1:] if argv is None else list(argv)
         if len(args) == 0:
             parser.print_help(sys.stderr)
             sys.exit(1)
