@@ -160,18 +160,18 @@ class Individual(object):
 
     def constructInfo(self, nLoci, genotypes=True, haps=False, reads=False):
         if genotypes and self.genotypes is None:
-            self.genotypes = np.full(nLoci, 9, dtype=np.int8)
+            self.genotypes = np.full(nLoci, 9, dtype=np.uint8)
 
         if haps and self.haplotypes is None:
             self.haplotypes = (
-                np.full(nLoci, 9, dtype=np.int8),
-                np.full(nLoci, 9, dtype=np.int8),
+                np.full(nLoci, 9, dtype=np.uint8),
+                np.full(nLoci, 9, dtype=np.uint8),
             )
 
         if reads and self.reads is None:
             self.reads = (
-                np.full(nLoci, 0, dtype=np.int64),
-                np.full(nLoci, 0, dtype=np.int64),
+                np.full(nLoci, 0, dtype=np.uint16),
+                np.full(nLoci, 0, dtype=np.uint16),
             )
 
     def isFounder(self):
@@ -343,7 +343,7 @@ class Pedigree(object):
             new_ind = new_pedigree[ind.idx]
             if new_ind.genotypes is not None:
                 if ind.genotypes is None:
-                    ind.genotypes = np.full(self.nLoci, 9, dtype=np.int8)
+                    ind.genotypes = np.full(self.nLoci, 9, dtype=np.uint8)
                 ind.genotypes[start:stop] = new_ind.genotypes
 
             if new_ind.dosages is not None:
@@ -355,8 +355,8 @@ class Pedigree(object):
             if new_ind.haplotypes is not None:
                 if ind.haplotypes is None:
                     ind.haplotypes = (
-                        np.full(self.nLoci, 9, dtype=np.int8),
-                        np.full(self.nLoci, 9, dtype=np.int8),
+                        np.full(self.nLoci, 9, dtype=np.uint8),
+                        np.full(self.nLoci, 9, dtype=np.uint8),
                     )
 
                 ind.haplotypes[0][start:stop] = new_ind.haplotypes[0]
@@ -804,7 +804,7 @@ class Pedigree(object):
         # 'Double' self.allele_coding as there are two allele columns at each locus
         coding = np.repeat(self.allele_coding, 2, axis=1)
 
-        decoded = np.full_like(alleles, b"0", dtype=np.int8)
+        decoded = np.full_like(alleles, b"0", dtype=np.uint8)
         decoded[alleles == coding[0]] = 0  # set alleles coded as 0
         decoded[alleles == coding[1]] = 1  # set alleles coded as 1
         decoded[alleles == b"0"] = 9  # convert missing (b'0' -> 9)
@@ -813,7 +813,7 @@ class Pedigree(object):
         decoded = np.atleast_2d(decoded)
         n_haps = decoded.shape[0] * 2
         n_loci = decoded.shape[1] // 2
-        haplotypes = np.full((n_haps, n_loci), 9, dtype=np.int8)
+        haplotypes = np.full((n_haps, n_loci), 9, dtype=np.uint8)
         haplotypes[::2] = decoded[:, ::2]
         haplotypes[1::2] = decoded[:, 1::2]
 
@@ -943,7 +943,7 @@ class Pedigree(object):
         ncol = None
 
         data_list = MultiThreadIO.readLines(
-            fileName, startsnp=startsnp, stopsnp=stopsnp, dtype=np.int8
+            fileName, startsnp=startsnp, stopsnp=stopsnp, dtype=np.uint8
         )
 
         for value in data_list:
@@ -990,7 +990,7 @@ class Pedigree(object):
             # List to store repeated phenotype records for the same trait.
             if ind.phenotype is None:
                 ind.phenotype = []
-            ind.phenotype.append(np.full(self.nPheno, pheno, dtype=np.int8))
+            ind.phenotype.append(np.full(self.nPheno, pheno, dtype=np.uint8))
 
     def readInPhenotypePenetrance(self, fileName):
         """
@@ -1011,7 +1011,7 @@ class Pedigree(object):
         ncol = None
 
         data_list = MultiThreadIO.readLines(
-            fileName, startsnp=startsnp, stopsnp=stopsnp, dtype=np.int8
+            fileName, startsnp=startsnp, stopsnp=stopsnp, dtype=np.uint8
         )
 
         for value in data_list:
@@ -1025,7 +1025,7 @@ class Pedigree(object):
         ncol = None
 
         data_list = MultiThreadIO.readLines(
-            fileName, startsnp=startsnp, stopsnp=stopsnp, dtype=np.int8
+            fileName, startsnp=startsnp, stopsnp=stopsnp, dtype=np.uint8
         )
 
         e = 0
