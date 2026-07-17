@@ -1,6 +1,6 @@
 import numpy as np
 import re
-from numba import jit, int64
+from numba import jit, uint32
 from numba.experimental import jitclass
 
 from collections import OrderedDict
@@ -33,10 +33,10 @@ class Family(object):
 
 
 spec = OrderedDict()
-spec["idn"] = int64
-spec["sire"] = int64
-spec["dam"] = int64
-spec["offspring"] = int64[:]
+spec["idn"] = uint32
+spec["sire"] = uint32
+spec["dam"] = uint32
+spec["offspring"] = uint32[:]
 
 
 @jitclass(spec)
@@ -45,7 +45,7 @@ class jit_Family(object):
         self.idn = idn
         self.sire = sire
         self.dam = dam
-        self.offspring = offspring.astype(np.int64)
+        self.offspring = offspring.astype(np.uint32)
 
 
 class Individual(object):
