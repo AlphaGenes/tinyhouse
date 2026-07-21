@@ -296,9 +296,9 @@ def add_arguments_from_dictionary(parser, arg_dict, options=None):
                 print("Option not found:", option, arg_dict)
 
 
-def parseArgs(program, parser=None, no_args=False):
+def parseArgs(program, parser=None, no_args=False, argv=None):
     global args
-    args = rawParseArgs(program, parser, no_args=no_args)
+    args = rawParseArgs(program, parser, no_args=no_args, argv=argv)
     args.program = program
 
     # We want start/stop snp to be in python format (i.e. 0 to n-1).
@@ -314,7 +314,7 @@ def parseArgs(program, parser=None, no_args=False):
     return args
 
 
-def rawParseArgs(program, parser=None, no_args=False):
+def rawParseArgs(program, parser=None, no_args=False, argv=None):
     if parser is None:
         parser = getParser(program)
 
@@ -322,7 +322,7 @@ def rawParseArgs(program, parser=None, no_args=False):
         return parser.parse_args(["-out", "out"])
 
     else:
-        args = sys.argv[1:]
+        args = sys.argv[1:] if argv is None else list(argv)
         if len(args) == 0:
             parser.print_help(sys.stderr)
             sys.exit(1)
@@ -374,8 +374,7 @@ def readInPedigreeFromInputs(
 
     pedigree.MainMetaFounder = getattr(args, "main_metafounder", None)
     if pedigree.MainMetaFounder[:3] != "MF_":
-        print("ERROR: The main_metafounder must start with MF_. \nExiting...")
-        sys.exit(2)
+        raise ValueError("The main_metafounder must start with MF_.")
     pedigree.args = args
     pedigreeReadIn = False
 
@@ -399,16 +398,14 @@ def readInPedigreeFromInputs(
     phenotype = getattr(args, "phenotype", None)
     if phenotype is not None:
         if phenoPenetrance is None:
-            print(
-                "ERROR: To use phenotype information, please provide a phenotype penetrance via '-pheno_penetrance_file'\nExiting..."
+            raise ValueError(
+                "To use phenotype information, please provide a phenotype penetrance via '-pheno_penetrance_file'."
             )
-            sys.exit(2)
         if pedigree.nLoci > 1:
             # For now, this will be removed once mapping of phenotype to genotype is done.
-            print(
-                "ERROR: Currently phenotype information can only be used with a single locus genotype input. Please either remove the pheno_file or use a single locus genotype input.\nExiting..."
+            raise ValueError(
+                "Currently phenotype information can only be used with a single locus genotype input. Please either remove the pheno_file or use a single locus genotype input."
             )
-            sys.exit(2)
 
         for pheno in args.phenotype:
             pedigree.readInPhenotype(pheno)
